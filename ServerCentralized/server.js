@@ -1,51 +1,48 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const { MongoClient } = require('mongodb');
-const { generateKeyPairSync } = require('crypto'); // Importamos el módulo crypto
-
+const mongoose = require('mongoose');
+const SSHKey = require('./models/sshKeyModel');
+const Ejemplo = require('./models/ejemplo'); // Asegúrate de ajustar la ruta correcta
 const app = express();
-const port = 3000;
 
-app.use(bodyParser.json());
+// Configura el puerto
+const PORT = process.env.PORT || 3000;
 
-// Conexión a la base de datos
-MongoClient.connect('mongodb://localhost:27017', { useUnifiedTopology: true }, (err, client) => {
-    if (err) {
-        console.error('Error connecting to MongoDB:', err);
-        return;
-    }
+// Conexión a la base de datos MongoDB
+const dbURI = 'mongodb://localhost:27017/sshkeys';
+mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    console.log('Conexión a MongoDB establecida.');
+    app.listen(PORT, () => {
+      console.log(`Servidor Express en ejecución en el puerto ${PORT}`);
 
-    const db = client.db('sshkeys');
+      // Ruta para generar y almacenar las claves SSH
+      app.post('/generar-claves', async (req, res) => {
+        try {
 
-    // Ruta para generar y almacenar la clave SSH
-    app.post('/generate-ssh-key', (req, res) => {
-        const { username } = req.body;
-
-        // Generar la clave SSH aquí (usando el módulo 'crypto')
-        const { publicKey, privateKey } = generateKeyPairSync('rsa', {
-            modulusLength: 4096,
-            publicKeyEncoding: {
-                type: 'spki',
-                format: 'pem'
-            },
-            privateKeyEncoding: {
-                type: 'pkcs8',
-                format: 'pem'
-            }
-        });
-
-        // Almacena las claves en la base de datos (aquí deberías agregar el código para hacerlo)
-        db.collection('keys').insertOne({ username, publicKey, privateKey }, (err, result) => {
-            if (err) {
-                console.error('Error inserting key into database:', err);
-                res.status(500).json({ error: 'Internal server error' });
-            } else {
-                res.json({ message: 'SSH key generated and stored successfully' });
-            }
-        });
+          const keyPair = await SSHKey.generateAndStoreSSHKeys();
+          console.log('Generated Key Pair:', keyPair);
+          const { privateKey, publicKey } = keyPair;
+          console.log("privateKey: ", privateKey)
+          // Almacena las claves en la base de datos
+          //const ejemplo = new Ejemplo({
+          //  privateKey,
+          //  publicKey,
+          //});
+          //await ejemplo.save();
+          // Devuelve la clave pública como respuesta
+          res.json({ publicKey });
+        } catch (error) {
+              console.error('Error al generar y almacenar las claves SSH:', error); // Agrega esta línea
+              res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
+        }
+      });
     });
+  })
+  .catch(err => console.error('Error de conexión a MongoDB:', err));
 
-    app.listen(port, () => {
-        console.log(`Server is running on port ${port}`);
-    });
-});
+// Agrega las rutas a la aplicación
+//app.use('/', routes);
+
+// ... (middleware y configuraciones adicionales)
+
+module.exports = app;
