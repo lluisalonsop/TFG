@@ -7,9 +7,11 @@ const path = require('path');
 const sshKeySchema = new mongoose.Schema({
   publicKey: String,
   privateKey: String,
+  ip: String,
+  expiryDate: Date,
 });
 
-sshKeySchema.statics.generateAndStoreSSHKeys = async function () {
+sshKeySchema.statics.generateAndStoreSSHKeys = async function (ip) {
   try {
     const tmpDir = '/tmp/ssh-keys'; // Directorio temporal para almacenar las claves
 
@@ -30,7 +32,14 @@ sshKeySchema.statics.generateAndStoreSSHKeys = async function () {
     fs.rmdirSync(tmpDir);
 
     // Crear y guardar el documento de clave en la base de datos
-    const sshKey = new this({ publicKey, privateKey });
+    console.log("Client ip(a_secas): ",ip)
+    const sshKey = new this({ 
+      publicKey,
+      privateKey,
+      ip,
+      // 30 days: expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiryDate: new Date(Date.now() + 60 * 1000),
+    });
     await sshKey.save();
 
     return sshKey;
