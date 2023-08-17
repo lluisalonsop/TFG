@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const SSHKey = require('./models/sshKeyModel');
+const proxies = require('./models/proxiesModel');
 const app = express();
 
 // Configura el puerto
@@ -18,6 +19,7 @@ async function verifyLapsedKeys() {
 
 // Conexión a la base de datos MongoDB
 const dbURI = 'mongodb://localhost:27017/sshkeys';
+const dbURIProxies = 'mongodb://localhost:27017/proxies';
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log('Conexión a MongoDB establecida.');
@@ -53,5 +55,31 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
               res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
         }
       });
-
+      app.post('/subscribe-proxy', async (req, res) => {
+      try {
+        const clientIp = req.ip;
+        // Extracción de la dirección IPv4 de la cadena si está en formato IPv6 mapeado
+        const ipv4Match = clientIp.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);
+        const ipv4 = ipv4Match ? ipv4Match[1] : clientIp;
+        const existingProxie = await proxies.findOne({ ip: ipv4 });
+        console.log("Ip exists? : ", existingProxie)
+        if (existingProxie) {
+          console.log('El proxie ya esta suscrito');
+          return res.status(403).json({ error: 'El proxie ya esta suscrito'});
+        }else{
+          const result = await proxies.storeNewProxy(ipv4);
+          if (result == true){
+             res.status(201).json({ message: 'Proxy suscrito exitosamente.' });
+          }
+          else{
+             res.status(500).json({ message: 'Uknown error' });
+          }
+        }
+      } catch (error) {
+        console.error('Error al generar y almacenar las claves SSH:', error); // Agrega esta línea
+        res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
+      }
+    });
+    })
+  })
 module.exports = app;
