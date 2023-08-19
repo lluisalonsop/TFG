@@ -15,5 +15,6 @@ src/P2PMenu.o: src/P2PMenu.cpp src/P2PMenu.h
 
 src/ConnectionManager.o: src/ConnectionManager.cpp src/ConnectionManager.h
 	$(CC) $(CFLAGS) -c src/ConnectionManager.cpp -o src/ConnectionManager.o
+
 clean:
 	rm -f src/*.o proyecto

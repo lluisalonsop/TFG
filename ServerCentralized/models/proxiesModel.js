@@ -13,6 +13,7 @@ const proxieSchema = new mongoose.Schema({
   }
 });
 
+
 proxieSchema.statics.storeNewProxy = async function (ip) {
   try {
     console.log("New Proxy ip: ",ip)

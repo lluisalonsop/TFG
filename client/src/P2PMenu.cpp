@@ -1,10 +1,35 @@
 #include "P2PMenu.h"
 const Fl_Color green = 79;
 
+bool containsSubstring(const std::string &line, const std::string &substring) {
+    return line.find(substring) != std::string::npos;
+}
+
+bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile) {
+    std::ifstream file(authorizedKeysFile);
+    if (!file) {
+        std::cerr << "Error al abrir el archivo: " << authorizedKeysFile << std::endl;
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (containsSubstring(line, substringToCheck)) {
+            return true; // La clave pública está presente
+        }
+    }
+
+    return false; // La clave pública no se encontró en authorized_keys
+}
+
 void P2PMenu::buttonCallback(Fl_Widget *widget, void *data) {
     std::cout << "Aquí llegamos 3" << std::endl;
     
     try {
+
+        std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
+        std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
+        isPublicKeyPresent(substringToCheck,authorizedKeysFile);
         const char *url = "http://localhost:3000/subscribe-proxy";
         std::string response;
         
@@ -54,15 +79,7 @@ P2PMenu::P2PMenu() {
     this->button = new Fl_Button(50, 50, 100, 30, "Haz clic");
 
     this->button->color(green);
-    /*
-    this->button->callback([](Fl_Widget *widget, void *data) {
-        std::cout << "Aquí llegamos 2" << std::endl;
-        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-        p2pMenu->buttonCallback(widget, p2pMenu);
-        Fl_Button *b = (Fl_Button *)widget;
-        b->label("¡Hiciste clic!");
-    });
-    */
+
     this->button->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->buttonCallback(widget, p2pMenu);

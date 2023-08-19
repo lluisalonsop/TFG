@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const SSHKey = require('./models/sshKeyModel');
 const proxies = require('./models/proxiesModel');
+const fs = require('fs');
 const app = express();
 
 // Configura el puerto
@@ -72,13 +73,22 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
              res.status(201).json({ message: 'Proxy suscrito exitosamente.' });
           }
           else{
-             res.status(500).json({ message: 'Uknown error' });
+             res.status(500).json({ message: 'Proxy not trusted' });
           }
         }
       } catch (error) {
         console.error('Error al generar y almacenar las claves SSH:', error); // Agrega esta línea
         res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
       }
+    });
+    app.post('/get-server-public-key', (req, res) => {
+        try {
+            const serverPublicKey = fs.readFileSync('./.ssh/id_rsa.pub', 'utf8');
+            res.status(200).json({ serverPublicKey: serverPublicKey });
+        } catch (error) {
+            console.error('Error al obtener la clave pública del servidor:', error);
+            res.status(500).json({ error: 'Error al obtener la clave pública del servidor' });
+        }
     });
     })
   })
