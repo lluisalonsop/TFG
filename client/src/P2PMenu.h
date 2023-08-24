@@ -13,21 +13,26 @@ class P2PMenu {
 public:
     P2PMenu();
     void run();
-    void buttonCallback(Fl_Widget *widget, void *data);
+    void buttonOfferCallback(Fl_Widget *widget, void *data);
+    void buttonUnsubscribeCallback(Fl_Widget *widget, void *data);
     void printToConsole(const std::string &message);
     void clearButtonCallback();
     void HideOffer();
+    void ShowOffer();
 
 private:
     Fl_Window *window;
-    Fl_Button *button;
+    Fl_Button *buttonOffer;
+    Fl_Button *unsubscribeOffer;
+    Fl_Box *proxyUnsubscribeText;
     Fl_Box *proxyOfferText;
     Fl_Box *consoleText;
+    Fl_Box *servingStatus;
     ConnectionManager *connectionManager;
     Fl_Text_Buffer *consoleBuffer;
     Fl_Text_Display *consoleDisplay;
     Fl_Button *clearButton;
-    Fl_Box *greenCircle;
+    Fl_Box *Circle;
 };
 
 #endif // P2P_MENU_H

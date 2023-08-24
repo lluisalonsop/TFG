@@ -81,6 +81,24 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
         res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
       }
     });
+    app.post('/unsubscribe-proxy', async (req, res) => {
+      try {
+        const clientIp = req.ip;
+        // Extracción de la dirección IPv4 de la cadena si está en formato IPv6 mapeado
+        const ipv4Match = clientIp.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);
+        const ipv4 = ipv4Match ? ipv4Match[1] : clientIp;
+        const result = await proxies.deleteOne({ ip: ipv4 });
+        if (result.deletedCount === 1) {
+          console.log('El proxie ha sido eliminado');
+          return res.status(200).json({ message: 'Proxy successfully unsubscribed'});
+        }else{
+          res.status(500).json({ message: 'Proxy couldnt be unsubscribed!!!' });
+        }
+      } catch (error) {
+        console.error('Error al generar y almacenar las claves SSH:', error); // Agrega esta línea
+        res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
+      }
+    });
     app.post('/get-server-public-key', (req, res) => {
         try {
             const serverPublicKey = fs.readFileSync('./.ssh/id_rsa.pub', 'utf8');

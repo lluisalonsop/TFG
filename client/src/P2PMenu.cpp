@@ -38,9 +38,18 @@ void P2PMenu::printToConsole(const std::string &message) {
 }
 
 void P2PMenu::HideOffer(){
-    this->button->hide();
+    this->buttonOffer->hide();
     this->proxyOfferText->hide();
-    this->greenCircle->show();
+    this->unsubscribeOffer->show();
+    this->proxyUnsubscribeText->show();
+    this->window->redraw();
+}
+
+void P2PMenu::ShowOffer(){
+    this->buttonOffer->show();
+    this->proxyOfferText->show();
+    this->unsubscribeOffer->hide();
+    this->proxyUnsubscribeText->hide();
     this->window->redraw();
 }
 
@@ -71,7 +80,7 @@ bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &
     return false; // La clave pública no se encontró en authorized_keys
 }
 
-void P2PMenu::buttonCallback(Fl_Widget *widget, void *data) {
+void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
     std::cout << "Aquí llegamos 3" << std::endl;
     
     try {
@@ -85,6 +94,7 @@ void P2PMenu::buttonCallback(Fl_Widget *widget, void *data) {
         if (this->connectionManager->postRequest(url, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
+            this->Circle->color(FL_GREEN);
         } else {
             std::cout << "Error en la respuesta del servidor???" << std::endl;
         }
@@ -94,6 +104,31 @@ void P2PMenu::buttonCallback(Fl_Widget *widget, void *data) {
         std::cerr << "Excepción no identificada atrapada" << std::endl;
     }
 }
+
+void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
+    try {
+
+        //std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
+        //std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
+        //isPublicKeyPresent(substringToCheck,authorizedKeysFile);
+        const char *url = "http://192.168.137.38:3000/unsubscribe-proxy";
+        std::string response;
+        
+        if (this->connectionManager->postRequest(url, "", response)) {
+            //std::cout << "Respuesta del servidor: " << response << std::endl;
+            printToConsole("Respuesta del servidor: " + response);
+            this->Circle->color(FL_RED);
+        } else {
+            std::cout << "Error en la respuesta del servidor???" << std::endl;
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Excepción atrapada: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Excepción no identificada atrapada" << std::endl;
+    }
+}
+
+
 
 P2PMenu::P2PMenu() {
     this->connectionManager = new ConnectionManager();
@@ -121,34 +156,50 @@ P2PMenu::P2PMenu() {
 
     //Crear texto encima del botón
     this->proxyOfferText = new Fl_Box(50, 10, 100, 20, "Ofrecerse como proxy");
-
-    // Configurar el color y estilo del widget de texto
     this->proxyOfferText->box(FL_NO_BOX); // Eliminar el borde del widget de texto
-
-    // Cambiar el color de fondo del widget de texto a blanco (RGB: 255, 255, 255)
     this->proxyOfferText->color(FL_WHITE);
+
+    //Crear texto encima del botón
+    this->proxyUnsubscribeText = new Fl_Box(50, 10, 100, 20, "Stop serving as proxy");
+    this->proxyUnsubscribeText->box(FL_NO_BOX); // Eliminar el borde del widget de texto
+    this->proxyUnsubscribeText->color(FL_WHITE);
+    this->proxyUnsubscribeText->hide();
+
 
     this->consoleText = new Fl_Box(675,385,100,20, "Console logs");
     this->consoleText->box(FL_NO_BOX);
     this->consoleText->color(FL_WHITE);
 
+    this->servingStatus = new Fl_Box(1275,55,100,20, "Serving Status");
+    this->servingStatus->box(FL_NO_BOX);
+    this->servingStatus->color(FL_WHITE);
+
     // Crear un botón en la esquina superior izquierda
-    this->button = new Fl_Button(50, 50, 100, 30, "Haz clic");
-
-    this->button->color(green);
-
-    this->button->callback([](Fl_Widget *widget, void *data) {
+    this->buttonOffer = new Fl_Button(50, 50, 100, 30, "Haz clic");
+    this->buttonOffer->color(green);
+    this->buttonOffer->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-    p2pMenu->buttonCallback(widget, p2pMenu);
+    p2pMenu->buttonOfferCallback(widget, p2pMenu);
     p2pMenu->HideOffer();
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
 
-    this->greenCircle = new Fl_Box(1400, 50, 25, 25); // Tamaño del círculo
-    this->greenCircle->box(FL_ROUND_DOWN_BOX); // Establece el estilo redondeado
-    this->greenCircle->color(FL_GREEN); // Establece el color
-    this->greenCircle->hide(); // Oculta el círculo al principio
+    // Crear un botón en la esquina superior izquierda
+    this->unsubscribeOffer = new Fl_Button(50, 50, 100, 30, "Haz clic");
+    this->unsubscribeOffer->color(FL_RED);
+    this->unsubscribeOffer->hide();
+    this->unsubscribeOffer->callback([](Fl_Widget *widget, void *data) {
+    P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+    p2pMenu->buttonUnsubscribeCallback(widget, p2pMenu);
+    p2pMenu->ShowOffer();
+    //Fl_Button *b = (Fl_Button *)widget;
+    //b->hide();
+    }, this);
+
+    this->Circle = new Fl_Box(1400, 50, 25, 25); // Tamaño del círculo
+    this->Circle->box(FL_ROUND_DOWN_BOX); // Establece el estilo redondeado
+    this->Circle->color(FL_RED); // Establece el color
 
     this->clearButton = new Fl_Button(1300, 380, 100, 30, "Clear");
     this->clearButton->color(green);
