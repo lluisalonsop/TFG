@@ -63,10 +63,11 @@ void P2PMenu::clearButtonCallback() {
     consoleDisplay->redraw();
 }
 
-bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile) {
+bool P2PMenu::isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile) {
     std::ifstream file(authorizedKeysFile);
     if (!file) {
-        std::cerr << "Error al abrir el archivo: " << authorizedKeysFile << std::endl;
+        //std::cerr << "Error al abrir el archivo: " << authorizedKeysFile << std::endl;
+        printToConsole("Error abriendo el archivo authorized_keys");
         return false;
     }
 
@@ -76,8 +77,19 @@ bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &
             return true; // La clave pública está presente
         }
     }
-
+    printToConsole("Server key Not found, making request to server");
     return false; // La clave pública no se encontró en authorized_keys
+}
+
+bool P2PMenu::storePublicKey(const std::string pubKey ,const std::string &authorizedKeysFile){
+    std::ofstream outFile(authorizedKeysFile, std::ios::app);
+    if (!outFile) {
+        std::cerr << "Error al abrir el archivo: " << authorizedKeysFile << std::endl;
+        return false; // Termina el programa con código de error
+    }
+    outFile << pubKey; // Añade la cadena al archivo
+    outFile.close();
+    return true;
 }
 
 void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
@@ -87,7 +99,22 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
 
         std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
         std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
-        isPublicKeyPresent(substringToCheck,authorizedKeysFile);
+        bool keyIsPresent = isPublicKeyPresent(substringToCheck,authorizedKeysFile);
+        if (!keyIsPresent){
+            const char *url_key = "http://192.168.137.38:3000/get-server-public-key";
+            std::string res;
+            if (this->connectionManager->postRequest(url_key, "",res)){
+                printToConsole("Respuesta del servidor: " + res);
+                bool stored = storePublicKey(res,authorizedKeysFile);
+                if (!stored){
+                    printToConsole("Error storing key, check file " + authorizedKeysFile);
+                }
+            }else{
+                printToConsole("Error retriving server pub key: " + res);
+            }
+        }
+
+
         const char *url = "http://192.168.137.38:3000/subscribe-proxy";
         std::string response;
         
@@ -132,17 +159,19 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
 
 P2PMenu::P2PMenu() {
     this->connectionManager = new ConnectionManager();
-    std::cout << "Aquí llegamos 1 " << std::endl;
     // Obtener el ancho y alto de la pantalla
     int screenWidth = Fl::w();
     int screenHeight = Fl::h();
 
-    std::cout << "screenWidth:" <<  screenWidth <<std::endl;
-    std::cout << "screenHeight:" <<  screenWidth <<std::endl;
-
     // Calcular las dimensiones de la ventana
     int windowWidth = screenWidth * 0.8; // Por ejemplo, el 80% del ancho
     int windowHeight = screenHeight * 0.8; // Por ejemplo, el 80% del alto
+
+    //std::cout << "windowWidth: " << windowWidth << std::endl;
+    //std::cout << "windowHeight: " << windowHeight << std::endl;
+
+    //windowWidth: 1480
+    //windowHeight: 733
 
     // Crear una ventana centrada en la pantalla
     int windowX = (screenWidth - windowWidth) / 2;
@@ -155,12 +184,12 @@ P2PMenu::P2PMenu() {
     window->color(FL_BACKGROUND_COLOR);
 
     //Crear texto encima del botón
-    this->proxyOfferText = new Fl_Box(50, 10, 100, 20, "Ofrecerse como proxy");
+    this->proxyOfferText = new Fl_Box(80, 45, 100, 20, "Ofrecerse como proxy");
     this->proxyOfferText->box(FL_NO_BOX); // Eliminar el borde del widget de texto
     this->proxyOfferText->color(FL_WHITE);
 
     //Crear texto encima del botón
-    this->proxyUnsubscribeText = new Fl_Box(50, 10, 100, 20, "Stop serving as proxy");
+    this->proxyUnsubscribeText = new Fl_Box(80, 45, 100, 20, "Stop serving as proxy");
     this->proxyUnsubscribeText->box(FL_NO_BOX); // Eliminar el borde del widget de texto
     this->proxyUnsubscribeText->color(FL_WHITE);
     this->proxyUnsubscribeText->hide();
@@ -175,7 +204,7 @@ P2PMenu::P2PMenu() {
     this->servingStatus->color(FL_WHITE);
 
     // Crear un botón en la esquina superior izquierda
-    this->buttonOffer = new Fl_Button(50, 50, 100, 30, "Haz clic");
+    this->buttonOffer = new Fl_Button(80, 85, 100, 30, "Haz clic");
     this->buttonOffer->color(green);
     this->buttonOffer->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
@@ -186,7 +215,7 @@ P2PMenu::P2PMenu() {
     }, this);
 
     // Crear un botón en la esquina superior izquierda
-    this->unsubscribeOffer = new Fl_Button(50, 50, 100, 30, "Haz clic");
+    this->unsubscribeOffer = new Fl_Button(80, 85, 100, 30, "Haz clic");
     this->unsubscribeOffer->color(FL_RED);
     this->unsubscribeOffer->hide();
     this->unsubscribeOffer->callback([](Fl_Widget *widget, void *data) {

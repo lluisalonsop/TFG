@@ -101,6 +101,7 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
     });
     app.post('/get-server-public-key', (req, res) => {
         try {
+            console.log("GOT PETITON OF PUBLIC KEY");
             const serverPublicKey = fs.readFileSync('./.ssh/id_rsa.pub', 'utf8');
             res.status(200).json({ serverPublicKey: serverPublicKey });
         } catch (error) {

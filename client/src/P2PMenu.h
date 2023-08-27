@@ -16,6 +16,8 @@ public:
     void buttonOfferCallback(Fl_Widget *widget, void *data);
     void buttonUnsubscribeCallback(Fl_Widget *widget, void *data);
     void printToConsole(const std::string &message);
+    bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile);
+    bool storePublicKey(const std::string pubKey ,const std::string &authorizedKeysFile);
     void clearButtonCallback();
     void HideOffer();
     void ShowOffer();
