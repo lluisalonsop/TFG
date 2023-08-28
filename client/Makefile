@@ -1,6 +1,6 @@
 CC = g++
-CFLAGS = -Wall -Wextra
-LDFLAGS = -lfltk -lcurl
+CFLAGS = -Wall -Wextra -I/home/lluis/Documents/vcpkg/installed/x64-linux/include
+LDFLAGS = -L/home/lluis/Documents/vcpkg/installed/x64-linux/lib -lfltk -lcurl -ljsoncpp
 
 all: proyecto
 

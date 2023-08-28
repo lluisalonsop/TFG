@@ -105,9 +105,23 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
             std::string res;
             if (this->connectionManager->postRequest(url_key, "",res)){
                 printToConsole("Respuesta del servidor: " + res);
-                bool stored = storePublicKey(res,authorizedKeysFile);
-                if (!stored){
-                    printToConsole("Error storing key, check file " + authorizedKeysFile);
+                Json::Value root;
+                Json::CharReaderBuilder reader;
+                std::istringstream jsonStream(res);
+                std::string errs;
+                if (Json::parseFromStream(reader, jsonStream, &root, &errs)) {
+                    if (root.isMember("serverPublicKey")) {
+                        std::string publicKey = root["serverPublicKey"].asString();
+                        std::cout << "Public Key: " << publicKey << std::endl;
+                        bool stored = storePublicKey(publicKey,authorizedKeysFile);
+                        if (!stored){
+                            printToConsole("Error storing key, check file " + authorizedKeysFile);
+                        }
+                    } else {
+                        std::cerr << "No 'serverPublicKey' found in JSON." << std::endl;
+                    }
+                } else {
+                    std::cerr << "JSON parse error: " << errs << std::endl;
                 }
             }else{
                 printToConsole("Error retriving server pub key: " + res);

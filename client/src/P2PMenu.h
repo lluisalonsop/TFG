@@ -8,6 +8,7 @@
 #include <fstream>
 #include "ConnectionManager.h"
 #include <FL/Fl_Text_Display.H>
+#include <json/json.h>
 
 class P2PMenu {
 public:
