@@ -1,14 +1,19 @@
 #ifndef P2P_MENU_H
 #define P2P_MENU_H
 
+
+#include "ConnectionManager.h"
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Box.H>
-#include <fstream>
-#include "ConnectionManager.h"
 #include <FL/Fl_Text_Display.H>
+#include <fstream>
+#include <ctime>
 #include <json/json.h>
+#include <iostream>
+#include <cstdlib>
+#include <filesystem>
 
 class P2PMenu {
 public:
@@ -20,13 +25,17 @@ public:
     bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile);
     bool storePublicKey(const std::string pubKey ,const std::string &authorizedKeysFile);
     void clearButtonCallback();
+    void askForProxy(Fl_Widget *widget, void *data);
     void HideOffer();
     void ShowOffer();
+    bool areKeysPresent();
 
 private:
     Fl_Window *window;
     Fl_Button *buttonOffer;
     Fl_Button *unsubscribeOffer;
+    Fl_Button *clientButton;
+    Fl_Box *assignProxy;
     Fl_Box *proxyUnsubscribeText;
     Fl_Box *proxyOfferText;
     Fl_Box *consoleText;

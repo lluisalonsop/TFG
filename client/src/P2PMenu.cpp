@@ -1,5 +1,5 @@
 #include "P2PMenu.h"
-#include <ctime>
+
 const Fl_Color green = 79;
 
 bool containsSubstring(const std::string &line, const std::string &substring) {
@@ -11,6 +11,8 @@ bool containsSubstring(const std::string &line, const std::string &substring) {
     this->consoleBuffer->append("\n");
 }
 */
+
+
 
 void P2PMenu::printToConsole(const std::string &message) {
     std::time_t now = std::time(nullptr);
@@ -79,6 +81,26 @@ bool P2PMenu::isPublicKeyPresent(const std::string &substringToCheck, const std:
     }
     printToConsole("Server key Not found, making request to server");
     return false; // La clave pública no se encontró en authorized_keys
+}
+
+bool P2PMenu::areKeysPresent() {
+    std::ifstream id_rsa("./.ssh/id_rsa");
+    if (!id_rsa) {
+        printToConsole("Error abriendo el archivo id_rsa");
+        id_rsa.close();
+        return false;
+    }
+    else{
+        id_rsa.close();
+        std::ifstream id_rsa_pub("./.ssh/id_rsa.pub");
+        if (!id_rsa_pub){
+            printToConsole("Error abriendo el archivo id_rsa_pub");
+            id_rsa_pub.close();
+            return false;
+        }
+        id_rsa_pub.close();
+        return true;
+    }
 }
 
 bool P2PMenu::storePublicKey(const std::string pubKey ,const std::string &authorizedKeysFile){
@@ -169,6 +191,67 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
     }
 }
 
+void P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
+    try {
+        const char *sshDirPath = "./.ssh"; // Ruta al directorio ./.ssh
+        if (system(("mkdir -p " + std::string(sshDirPath)).c_str()) == 0) {
+            std::cout << "Directorio ./.ssh creado exitosamente." << std::endl;
+        } else {
+            std::cerr << "Error al crear el directorio ./.ssh." << std::endl;
+        }
+        //std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
+        //std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
+        bool keys = areKeysPresent();
+        if (!keys){
+            std::string keyPath = "./.ssh/";
+            std::string command = "ssh-keygen -t rsa -b 4096 -N '' -f " + keyPath + "id_rsa";
+
+            int result = system(command.c_str());
+            if (result == 0) {
+                std::cout << "Las claves se generaron exitosamente." << std::endl;
+            } else {
+                std::cerr << "No se pudieron generar las claves." << std::endl;
+            }
+        }
+
+        std::ifstream inputFile("./.ssh/id_rsa.pub");
+        if (!inputFile.is_open()) {
+            std::cerr << "No se pudo abrir el archivo." << std::endl;
+        }
+        std::stringstream buffer;
+        buffer << inputFile.rdbuf(); // Lee el contenido del archivo en el buffer
+        std::string content = buffer.str(); // Guarda el contenido en una variable
+        inputFile.close(); // Cierra el archivo
+
+        std::cout <<"PUBLIC KEY:" << content <<std::endl;
+
+        Json::Value jsonData;
+        jsonData["public_key_content"] = content;
+
+        Json::StreamWriterBuilder writer;
+        std::string jsonDataStr = Json::writeString(writer, jsonData);
+
+        const char *url = "http://192.168.137.38:3000/assign_proxy";
+        std::string response;
+
+        // Configura los encabezados adecuados, incluido el Content-Type
+        struct curl_slist *headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        ConnectionManager connectionManager; // Crea una instancia del ConnectionManager
+
+        if (connectionManager.postRequestWithData(url, jsonDataStr.c_str(), response, headers)) {
+            std::cout << "Respuesta del servidor: " << response << std::endl;
+        } else {
+            std::cout << "Error en la respuesta del servidor." << std::endl;
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Excepción atrapada: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Excepción no identificada atrapada" << std::endl;
+    }
+}
+
 
 
 P2PMenu::P2PMenu() {
@@ -208,6 +291,9 @@ P2PMenu::P2PMenu() {
     this->proxyUnsubscribeText->color(FL_WHITE);
     this->proxyUnsubscribeText->hide();
 
+    this->assignProxy = new Fl_Box(400,45,100,20,"Ask for Proxy");
+    this->assignProxy->box(FL_NO_BOX);
+    this->assignProxy->color(FL_WHITE);
 
     this->consoleText = new Fl_Box(675,385,100,20, "Console logs");
     this->consoleText->box(FL_NO_BOX);
@@ -236,6 +322,15 @@ P2PMenu::P2PMenu() {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->buttonUnsubscribeCallback(widget, p2pMenu);
     p2pMenu->ShowOffer();
+    //Fl_Button *b = (Fl_Button *)widget;
+    //b->hide();
+    }, this);
+
+    this->clientButton = new Fl_Button(400,85,100,30,"Haz clic");
+    this->clientButton->color(FL_GREEN);
+    this->clientButton->callback([](Fl_Widget *widget, void *data) {
+    P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+    p2pMenu->askForProxy(widget, p2pMenu);
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);

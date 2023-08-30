@@ -10,6 +10,7 @@ public:
     ConnectionManager();
     ~ConnectionManager();
     bool postRequest(const char *url, const char *postData, std::string &response);
+    bool postRequestWithData(const char *url, const char *postData, std::string &response, struct curl_slist *headers);
 
 private:
     CURL *curl;

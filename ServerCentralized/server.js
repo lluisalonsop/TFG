@@ -3,7 +3,9 @@ const mongoose = require('mongoose');
 const SSHKey = require('./models/sshKeyModel');
 const proxies = require('./models/proxiesModel');
 const fs = require('fs');
+const bodyParser = require('body-parser');
 const app = express();
+app.use(bodyParser.json());
 
 // Configura el puerto
 const PORT = process.env.PORT || 3000;
@@ -28,8 +30,8 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
     app.listen(PORT, () => {
       console.log(`Servidor Express en ejecución en el puerto ${PORT}`);
 
-      // Ruta para generar y almacenar las claves SSH
-      app.post('/generate-key', async (req, res) => {
+      // Ruta para generar y almacenar las claves SSH  DEPRECATED!!!!
+      /*app.post('/generate-key', async (req, res) => {
         try {
           const clientIp = req.ip;
 
@@ -56,6 +58,7 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
               res.status(500).json({ error: 'Error al generar y almacenar las claves SSH' });
         }
       });
+      */
       app.post('/subscribe-proxy', async (req, res) => {
       try {
         const clientIp = req.ip;
@@ -108,6 +111,21 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
             console.error('Error al obtener la clave pública del servidor:', error);
             res.status(500).json({ error: 'Error al obtener la clave pública del servidor' });
         }
+    });
+    app.post('/assign_proxy', (req, res) => {
+      try {
+        console.log("GOT ASK FOR PROXY");
+        
+        const publicKeyContent = req.body.public_key_content; // Accede al contenido del cuerpo JSON
+        console.log('Public Key Content:', publicKeyContent);
+
+        // Aquí puedes hacer lo que necesites con publicKeyContent
+        
+        res.status(200).json({ message: "test" });
+      } catch (error) {
+        console.error('Error obtaining pubkey of client', error);
+        res.status(500).json({ error: 'Error obtaining pubkey of client' });
+      }
     });
     })
   })
