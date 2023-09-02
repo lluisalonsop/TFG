@@ -241,7 +241,7 @@ void P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
         ConnectionManager connectionManager; // Crea una instancia del ConnectionManager
 
         if (connectionManager.postRequestWithData(url, jsonDataStr.c_str(), response, headers)) {
-            std::cout << "Respuesta del servidor: " << response << std::endl;
+            printToConsole("Respuesta del servidor: " + response);
         } else {
             std::cout << "Error en la respuesta del servidor." << std::endl;
         }
@@ -252,7 +252,22 @@ void P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
     }
 }
 
-
+void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
+    try{
+        const char *url = "http://192.168.137.38:3000/unassign_proxy";
+        std::string response;
+        ConnectionManager connectionManager;
+        if (connectionManager.postRequest(url,"",response)) {
+            printToConsole("Respuesta del servidor: " + response);
+        } else {
+            std::cout << "Error en la respuesta del servidor." << std::endl;
+        }
+    }catch (const std::exception &e) {
+        std::cerr << "Excepción atrapada: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Excepción no identificada atrapada" << std::endl;
+    }
+}
 
 P2PMenu::P2PMenu() {
     this->connectionManager = new ConnectionManager();
@@ -331,6 +346,15 @@ P2PMenu::P2PMenu() {
     this->clientButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->askForProxy(widget, p2pMenu);
+    //Fl_Button *b = (Fl_Button *)widget;
+    //b->hide();
+    }, this);
+
+    this->unassignProxyButton = new Fl_Button(700,85,100,30,"Haz clic");
+    this->unassignProxyButton->color(FL_GREEN);
+    this->unassignProxyButton->callback([](Fl_Widget *widget, void *data) {
+    P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+    p2pMenu->unassignProxy(widget, p2pMenu);
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);

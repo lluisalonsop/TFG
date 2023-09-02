@@ -29,9 +29,10 @@ public:
     void HideOffer();
     void ShowOffer();
     bool areKeysPresent();
-
+    void unassignProxy(Fl_Widget *widget, void *data);
 private:
     Fl_Window *window;
+    Fl_Button *unassignProxyButton;
     Fl_Button *buttonOffer;
     Fl_Button *unsubscribeOffer;
     Fl_Button *clientButton;

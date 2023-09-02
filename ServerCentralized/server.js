@@ -112,21 +112,59 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
             res.status(500).json({ error: 'Error al obtener la clave pública del servidor' });
         }
     });
-    app.post('/assign_proxy', (req, res) => {
+    app.post('/assign_proxy', async (req, res) => {
       try {
         console.log("GOT ASK FOR PROXY");
         
         const publicKeyContent = req.body.public_key_content; // Accede al contenido del cuerpo JSON
         console.log('Public Key Content:', publicKeyContent);
 
-        // Aquí puedes hacer lo que necesites con publicKeyContent
+        const clientIp = req.ip;
+
+        // Extracción de la dirección IPv4 de la cadena si está en formato IPv6 mapeado
+        const ipv4Match = clientIp.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);
+        const ipv4 = ipv4Match ? ipv4Match[1] : clientIp;
         
-        res.status(200).json({ message: "test" });
+        const existingKey = await SSHKey.findOne({ ip: ipv4 });
+        console.log("Ip exists? : ", existingKey)
+        if (existingKey) {
+          console.log('La IP ya tiene una clave .');
+          await SSHKey.deleteOne({ ip: ipv4 });
+        }else{
+          console.log("WTF");
+        }
+        const result = await SSHKey.storeKey(ipv4 , publicKeyContent);
+        if (result){
+          const assigned = await proxies.assignProxyToIp(ipv4,publicKeyContent);
+          res.status(200).json({message : "Proxy ip: "+ assigned})
+          }else{
+            res.status(400).json({message: "You already have a proxie assigned!!!"})
+          }    
       } catch (error) {
-        console.error('Error obtaining pubkey of client', error);
-        res.status(500).json({ error: 'Error obtaining pubkey of client' });
-      }
+          console.error('Error obtaining pubkey of client', error);
+          res.status(500).json({ error: 'Error obtaining pubkey of client' });
+        }
+      });
+    app.post('/unassign_proxy', async (req, res) => {
+      try {
+        const clientIp = req.ip;
+
+        // Extracción de la dirección IPv4 de la cadena si está en formato IPv6 mapeado
+        const ipv4Match = clientIp.match(/::ffff:(\d+\.\d+\.\d+\.\d+)/);
+        const ipv4 = ipv4Match ? ipv4Match[1] : clientIp;
+
+        const result = await proxies.unassignProxy(ipv4);
+
+        if (result){
+          res.status(200).json({message : "Proxy successfully unassigned"})
+        }else{
+          res.status(400).json({message: "Proxy not FOUND!!!!"})
+        }    
+      } catch (error) {
+          console.error('Error obtaining pubkey of client', error);
+          res.status(500).json({ error: 'Error obtaining pubkey of client' });
+        }
+      })
     });
-    })
   })
 module.exports = app;

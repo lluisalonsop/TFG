@@ -6,11 +6,11 @@ const path = require('path');
 
 const sshKeySchema = new mongoose.Schema({
   publicKey: String,
-  privateKey: String,
+  //privateKey: String,
   ip: String,
   expiryDate: Date,
 });
-
+/* ------------------------DEPRECTED------------------------
 sshKeySchema.statics.generateAndStoreSSHKeys = async function (ip) {
   try {
     const tmpDir = '/tmp/ssh-keys'; // Directorio temporal para almacenar las claves
@@ -47,6 +47,24 @@ sshKeySchema.statics.generateAndStoreSSHKeys = async function (ip) {
     throw new Error('Error al generar y almacenar las claves SSH');
   }
 };
+*/
+
+sshKeySchema.statics.storeKey = async function (ip,publicKey) {
+  try {
+    const sshKey = new this({ 
+      publicKey,
+      ip,
+      // 30 days: expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      expiryDate: new Date(Date.now() + 60 * 1000),
+    });
+    await sshKey.save();
+
+    return true;
+  } catch (error) {
+    throw new Error('Error al generar y almacenar las claves SSH');
+  }
+};
+
 
 const SSHKey = mongoose.model('SSHKey', sshKeySchema);
 

@@ -8,6 +8,10 @@ const proxyDbConnection = mongoose.createConnection('mongodb://localhost:27017/p
 
 const proxieSchema = new mongoose.Schema({
   ip: String,
+  clientip: {
+    type: String,
+    default: ""
+  },
    assigned: {
     type: Boolean,
     default: false // Establece el valor inicial de assigned como false
@@ -62,6 +66,58 @@ proxieSchema.statics.storeNewProxy = async function (ip) {
     throw new Error('Error al almacenar proxyIp');
   }
 };
+
+proxieSchema.statics.assignProxyToIp = async function (ipClient,publicKey) {
+  try {
+    // Buscar un proxy aleatorio que no esté asignado
+    const randomUnassignedProxy = await proxies.findOne({ assigned: false });
+
+    if (!randomUnassignedProxy) {
+      console.log('No se encontraron proxies no asignados.');
+      return false;
+    }
+
+    const proxyIp = randomUnassignedProxy.ip;
+    console.log('Proxy no asignado encontrado:', proxyIp);
+
+    // Realizar la prueba de conexión SSH
+    try {
+      // Marcar el proxy como asignado en la base de datos
+      randomUnassignedProxy.assigned = true;
+      randomUnassignedProxy.clientip = ipClient;
+      await randomUnassignedProxy.save();
+      return proxyIp;
+    } catch (error) {
+      console.error('Prueba de conexión SSH con clave privada fallida:', error);
+    }
+  } catch (error) {
+    console.error('Error al buscar proxy no asignado:', error);
+  }
+}
+
+proxieSchema.statics.unassignProxy = async function (ipv4) {
+  try {
+    // Buscar un proxy aleatorio que no esté asignado
+    const assignedProxy = await proxies.findOne({ clientip: ipv4});
+
+    if (!assignedProxy) {
+      console.log('No se encontraron proxies no asignados.');
+      return false;
+    }
+
+    try {
+      // Marcar el proxy como asignado en la base de datos
+      assignedProxy.assigned = false;
+      assignedProxy.clientip = "";
+      await assignedProxy.save();
+      return true;
+    } catch (error) {
+      console.error('Prueba de conexión SSH con clave privada fallida:', error);
+    }
+  } catch (error) {
+    console.error('Error al buscar proxy no asignado:', error);
+  }
+}
 
 const proxies = proxyDbConnection.model('proxies', proxieSchema);
 
