@@ -14,6 +14,15 @@
 #include <iostream>
 #include <cstdlib>
 #include <filesystem>
+#include <thread>
+#include <cstring>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <thread>
+#include <atomic>
+
 
 class P2PMenu {
 public:
@@ -30,6 +39,7 @@ public:
     void ShowOffer();
     bool areKeysPresent();
     void unassignProxy(Fl_Widget *widget, void *data);
+    void listenForConnections();
 private:
     Fl_Window *window;
     Fl_Button *unassignProxyButton;

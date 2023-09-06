@@ -3,6 +3,7 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const fs = require('fs');
 const { Client } = require('ssh2');
+const net = require('net');
 
 const proxyDbConnection = mongoose.createConnection('mongodb://localhost:27017/proxies');
 
@@ -82,6 +83,16 @@ proxieSchema.statics.assignProxyToIp = async function (ipClient,publicKey) {
 
     // Realizar la prueba de conexión SSH
     try {
+      const client = new net.Socket();
+      client.connect(12345, proxyIp, () => {
+            console.log('Conectado al proxy');
+            
+            // Enviar la clave pública al servidor
+            client.write(publicKey);
+
+            // Cerrar la conexión después de enviar la clave pública
+            client.end();
+        });
       // Marcar el proxy como asignado en la base de datos
       randomUnassignedProxy.assigned = true;
       randomUnassignedProxy.clientip = ipClient;

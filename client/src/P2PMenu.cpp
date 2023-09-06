@@ -1,6 +1,9 @@
 #include "P2PMenu.h"
 
 const Fl_Color green = 79;
+const std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
+
+std::atomic<bool> shouldRun(true);
 
 bool containsSubstring(const std::string &line, const std::string &substring) {
     return line.find(substring) != std::string::npos;
@@ -12,6 +15,75 @@ bool containsSubstring(const std::string &line, const std::string &substring) {
 }
 */
 
+bool esClavePublicaSSH(const std::string& mensaje) {
+    // Comprueba si el mensaje comienza con "ssh-"
+    return mensaje.find("ssh-") == 0;
+}
+
+void P2PMenu::listenForConnections() {
+    try {
+        int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (serverSocket == -1) {
+            perror("Error al crear el socket del servidor");
+            return;
+        }
+        struct sockaddr_in serverAddress;
+        serverAddress.sin_family = AF_INET;
+        serverAddress.sin_addr.s_addr = INADDR_ANY;
+        serverAddress.sin_port = htons(12345); // El puerto en el que deseas escuchar
+
+        if (bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1) {
+            perror("Error al vincular el socket del servidor");
+            close(serverSocket);
+            return;
+        }
+
+        if (listen(serverSocket, 5) == -1) {
+            perror("Error al escuchar en el socket del servidor");
+            close(serverSocket);
+            return;
+        }
+        while (shouldRun.load()) {
+            struct sockaddr_in clientAddress;
+            socklen_t clientAddressLength = sizeof(clientAddress);
+            int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddress, &clientAddressLength);
+            if (clientSocket == -1) {
+                perror("Error al aceptar la conexión del cliente");
+                continue;
+            }
+
+
+        // Aquí puedes manejar la conexión entrante, leer y escribir datos con el cliente, etc.
+        char buffer[1024]; // Un búfer para almacenar los datos recibidos
+        ssize_t bytesRead;
+
+        while ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
+            // Imprime lo que se recibe en la consola
+            std::cout << "Mensaje recibido del cliente: " << std::string(buffer, bytesRead) << std::endl;
+            printToConsole("Mensaje recibido: " + std::string(buffer,bytesRead));
+            bool ssh = esClavePublicaSSH(std::string(buffer,bytesRead));
+            if (ssh){
+                storePublicKey(std::string(buffer,bytesRead),authorizedKeysFile);
+            }else{
+                printToConsole(std::string(buffer,bytesRead));
+            }
+            // Puedes realizar otras operaciones con los datos recibidos aquí, si es necesario.
+        }
+
+        if (bytesRead == -1) {
+            perror("Error al recibir datos del cliente");
+        }
+            close(clientSocket);
+        }
+        close(serverSocket);
+    } catch (const std::exception& e) {
+        // Maneja la excepción aquí, por ejemplo, registrándola o imprimiéndola
+        printToConsole("Excepción en listenForConnections: " + std::string(e.what()));
+    } catch (...) {
+        // Maneja otras excepciones no identificadas aquí
+        printToConsole("Excepción no identificada en listenForConnections");
+    }
+}
 
 
 void P2PMenu::printToConsole(const std::string &message) {
@@ -53,6 +125,7 @@ void P2PMenu::ShowOffer(){
     this->unsubscribeOffer->hide();
     this->proxyUnsubscribeText->hide();
     this->window->redraw();
+    shouldRun.store(false);
 }
 
 static void static_clearButtonCallback(Fl_Widget *widget, void *data) {
@@ -120,7 +193,6 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
     try {
 
         std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
-        std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
         bool keyIsPresent = isPublicKeyPresent(substringToCheck,authorizedKeysFile);
         if (!keyIsPresent){
             const char *url_key = "http://192.168.137.38:3000/get-server-public-key";
@@ -157,6 +229,17 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
         if (this->connectionManager->postRequest(url, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
+            try {
+                std::thread listenerThread(&P2PMenu::listenForConnections, this);
+                listenerThread.detach();
+
+            }catch (const std::exception& e) {
+                // Maneja la excepción aquí, por ejemplo, registrándola o imprimiéndola
+                printToConsole("Excepción en listenForConnections: " + std::string(e.what()));
+            } catch (...) {
+                // Maneja otras excepciones no identificadas aquí
+                printToConsole("Excepción no identificada en listenForConnections");
+            }
             this->Circle->color(FL_GREEN);
         } else {
             std::cout << "Error en la respuesta del servidor???" << std::endl;
@@ -170,7 +253,6 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
 
 void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
     try {
-
         //std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
         //std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
         //isPublicKeyPresent(substringToCheck,authorizedKeysFile);
