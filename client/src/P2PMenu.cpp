@@ -128,6 +128,19 @@ void P2PMenu::ShowOffer(){
     shouldRun.store(false);
 }
 
+void P2PMenu::HideProxy(){
+    std::cout <<"Hiding proxy" << std::endl;
+    this->ipProxy = "Proxy Ip Address: " + this->ipProxy;
+    this->textipProxy->label(this->ipProxy.c_str());
+    this->textipProxy->labelfont(FL_BOLD | FL_ITALIC);
+    this->textipProxy->show();
+    this->window->redraw();
+}
+
+void P2PMenu::ShowProxy(){
+    this->textipProxy->hide();
+}
+
 static void static_clearButtonCallback(Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->clearButtonCallback();
@@ -273,7 +286,7 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
     }
 }
 
-void P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
+std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
     try {
         const char *sshDirPath = "./.ssh"; // Ruta al directorio ./.ssh
         if (system(("mkdir -p " + std::string(sshDirPath)).c_str()) == 0) {
@@ -324,6 +337,37 @@ void P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
 
         if (connectionManager.postRequestWithData(url, jsonDataStr.c_str(), response, headers)) {
             printToConsole("Respuesta del servidor: " + response);
+            // Analizar la respuesta JSON
+            Json::Value root;
+            Json::CharReaderBuilder reader;
+            std::istringstream responseStream(response);
+            std::string errors;
+            Json::parseFromStream(reader, responseStream, &root, &errors);
+
+            // Extraer la dirección IP
+            std::string ipAddress;
+
+            if (!errors.empty()) {
+                std::cerr << "Error al analizar la respuesta JSON: " << errors << std::endl;
+            }
+
+            if (root.isMember("message")) {
+                ipAddress = root["message"].asString();
+                std::string searchString = "Proxy ip: ";
+                size_t found = response.find(searchString);
+                // Verificar si se encontró la cadena de búsqueda
+                if (found != std::string::npos) {
+                    std::string ipAddress = response.substr(found + searchString.length());
+                    ipAddress.pop_back();
+                    ipAddress.pop_back();
+                    return ipAddress;
+                } else {
+                    std::cerr << "No se encontró la cadena 'Proxy ip: ' en la respuesta." << std::endl;
+                }
+
+            } else {
+                std::cerr << "No se encontró el campo 'message' en la respuesta JSON." << std::endl;
+            }
         } else {
             std::cout << "Error en la respuesta del servidor." << std::endl;
         }
@@ -418,7 +462,7 @@ P2PMenu::P2PMenu() {
     this->unsubscribeOffer->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->buttonUnsubscribeCallback(widget, p2pMenu);
-    p2pMenu->ShowOffer();
+    
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
@@ -427,7 +471,8 @@ P2PMenu::P2PMenu() {
     this->clientButton->color(FL_GREEN);
     this->clientButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-    p2pMenu->askForProxy(widget, p2pMenu);
+    p2pMenu->ipProxy = p2pMenu->askForProxy(widget, p2pMenu);
+    p2pMenu->HideProxy();
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
@@ -440,6 +485,11 @@ P2PMenu::P2PMenu() {
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
+
+    this->textipProxy = new Fl_Box(1120, 100, 400, 20, "");
+    this->textipProxy->box(FL_NO_BOX);
+    this->textipProxy->color(FL_WHITE);
+    this->textipProxy->hide();
 
     this->Circle = new Fl_Box(1400, 50, 25, 25); // Tamaño del círculo
     this->Circle->box(FL_ROUND_DOWN_BOX); // Establece el estilo redondeado

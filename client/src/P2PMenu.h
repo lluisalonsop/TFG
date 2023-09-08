@@ -34,18 +34,22 @@ public:
     bool isPublicKeyPresent(const std::string &substringToCheck, const std::string &authorizedKeysFile);
     bool storePublicKey(const std::string pubKey ,const std::string &authorizedKeysFile);
     void clearButtonCallback();
-    void askForProxy(Fl_Widget *widget, void *data);
+    std::string askForProxy(Fl_Widget *widget, void *data);
     void HideOffer();
     void ShowOffer();
     bool areKeysPresent();
     void unassignProxy(Fl_Widget *widget, void *data);
     void listenForConnections();
+    void HideProxy();
+    void ShowProxy();
 private:
+    std::string ipProxy;
     Fl_Window *window;
     Fl_Button *unassignProxyButton;
     Fl_Button *buttonOffer;
     Fl_Button *unsubscribeOffer;
     Fl_Button *clientButton;
+    Fl_Box *textipProxy;
     Fl_Box *assignProxy;
     Fl_Box *proxyUnsubscribeText;
     Fl_Box *proxyOfferText;
