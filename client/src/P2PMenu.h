@@ -3,11 +3,13 @@
 
 
 #include "ConnectionManager.h"
+#include "RoundButton.h"
 #include <FL/Fl.H>
 #include <FL/Fl_Window.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Text_Display.H>
+#include <FL/Fl_Input.H>
 #include <fstream>
 #include <ctime>
 #include <json/json.h>
@@ -42,15 +44,21 @@ public:
     void listenForConnections();
     void HideProxy();
     void ShowProxy();
+    void initRoundButton(int x, int y, int w, int h, const char *label);
 private:
     std::string ipProxy;
+    Fl_Input *form1;
+    Fl_Input *form2;
+    Fl_Input *form3;
     Fl_Window *window;
     Fl_Button *unassignProxyButton;
     Fl_Button *buttonOffer;
     Fl_Button *unsubscribeOffer;
     Fl_Button *clientButton;
     Fl_Box *textipProxy;
+    Fl_Box *sessionInfo;
     Fl_Box *assignProxy;
+    Fl_Box *unassignProxytext;
     Fl_Box *proxyUnsubscribeText;
     Fl_Box *proxyOfferText;
     Fl_Box *consoleText;
@@ -60,6 +68,8 @@ private:
     Fl_Text_Display *consoleDisplay;
     Fl_Button *clearButton;
     Fl_Box *Circle;
+    RoundButton *roundButton;
+    RoundButton *roundButtonSubstract;
 };
 
 #endif // P2P_MENU_H

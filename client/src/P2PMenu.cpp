@@ -130,6 +130,13 @@ void P2PMenu::ShowOffer(){
 
 void P2PMenu::HideProxy(){
     std::cout <<"Hiding proxy" << std::endl;
+    this->clientButton->hide();
+    this->assignProxy->hide();
+    this->form1->show();
+    this->form2->show();
+    this->form3->show();
+    this->unassignProxyButton->show();
+    this->unassignProxytext->show();
     this->ipProxy = "Proxy Ip Address: " + this->ipProxy;
     this->textipProxy->label(this->ipProxy.c_str());
     this->textipProxy->labelfont(FL_BOLD | FL_ITALIC);
@@ -139,6 +146,16 @@ void P2PMenu::HideProxy(){
 
 void P2PMenu::ShowProxy(){
     this->textipProxy->hide();
+    this->form1->hide();
+    this->form2->hide();
+    this->form3->hide();
+    this->unassignProxytext->hide();
+    this->clientButton->show();
+    this->assignProxy->show();
+    this->unassignProxyButton->hide();
+    //this->roundButtonAdd->show();
+    this->roundButton->show();
+    this->window->redraw();
 }
 
 static void static_clearButtonCallback(Fl_Widget *widget, void *data) {
@@ -275,6 +292,10 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
         if (this->connectionManager->postRequest(url, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
+            this->proxyUnsubscribeText->hide();
+            this->unsubscribeOffer->hide();
+            this->buttonOffer->show();
+            this->proxyOfferText->show();
             this->Circle->color(FL_RED);
         } else {
             std::cout << "Error en la respuesta del servidor???" << std::endl;
@@ -395,6 +416,12 @@ void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
     }
 }
 
+void P2PMenu::initRoundButton(int x, int y, int w, int h, const char *label) {
+    this->roundButton = new RoundButton(x, y, w, h, label);
+    // Puedes configurar otras propiedades del botón aquí si es necesario
+    this->roundButton->hide();  // Muestra el botón en la interfaz
+}
+
 P2PMenu::P2PMenu() {
     this->connectionManager = new ConnectionManager();
     // Obtener el ancho y alto de la pantalla
@@ -435,6 +462,11 @@ P2PMenu::P2PMenu() {
     this->assignProxy = new Fl_Box(400,45,100,20,"Ask for Proxy");
     this->assignProxy->box(FL_NO_BOX);
     this->assignProxy->color(FL_WHITE);
+
+    this->unassignProxytext = new Fl_Box(400,45,100,20,"UnassignProxy");
+    this->unassignProxytext->box(FL_NO_BOX);
+    this->unassignProxytext->color(FL_WHITE);
+    this->unassignProxytext->hide();
 
     this->consoleText = new Fl_Box(675,385,100,20, "Console logs");
     this->consoleText->box(FL_NO_BOX);
@@ -477,14 +509,16 @@ P2PMenu::P2PMenu() {
     //b->hide();
     }, this);
 
-    this->unassignProxyButton = new Fl_Button(700,85,100,30,"Haz clic");
+    this->unassignProxyButton = new Fl_Button(400,85,100,30,"Haz clic");
     this->unassignProxyButton->color(FL_GREEN);
     this->unassignProxyButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->unassignProxy(widget, p2pMenu);
+    p2pMenu->ShowProxy();
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
+    this->unassignProxyButton->hide();
 
     this->textipProxy = new Fl_Box(1120, 100, 400, 20, "");
     this->textipProxy->box(FL_NO_BOX);
@@ -504,6 +538,14 @@ P2PMenu::P2PMenu() {
     this->consoleDisplay->buffer(consoleBuffer);
     this->consoleDisplay->textfont(FL_COURIER);
 
+    this->form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
+    this->form1->hide();
+    this->form2 = new Fl_Input(925, 85, 50, 30, "");
+    this->form2->hide();
+    this->form3 = new Fl_Input(1000, 85, 50, 30, "");
+    this->form3->hide();
+    this-> initRoundButton(1050, 50, 50, 50, "Botón");
+    this-> initRoundButton(1050, 50, 50, 50, "Botón");
     this->window->end();
 }
 
