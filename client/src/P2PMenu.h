@@ -25,6 +25,11 @@
 #include <thread>
 #include <atomic>
 
+struct InputGroup {
+    Fl_Input *form1;
+    Fl_Input *form2;
+    Fl_Input *form3;
+};
 
 class P2PMenu {
 public:
@@ -45,11 +50,13 @@ public:
     void HideProxy();
     void ShowProxy();
     void initRoundButton(int x, int y, int w, int h, const char *label);
+    void drawInputs();
+    void addConnection();
+    void substractConnection();
+    int getNumConnections();
 private:
     std::string ipProxy;
-    Fl_Input *form1;
-    Fl_Input *form2;
-    Fl_Input *form3;
+    InputGroup inputArray[4];
     Fl_Window *window;
     Fl_Button *unassignProxyButton;
     Fl_Button *buttonOffer;
@@ -70,6 +77,7 @@ private:
     Fl_Box *Circle;
     RoundButton *roundButton;
     RoundButton *roundButtonSubstract;
+    int numConnections;
 };
 
 #endif // P2P_MENU_H

@@ -132,29 +132,31 @@ void P2PMenu::HideProxy(){
     std::cout <<"Hiding proxy" << std::endl;
     this->clientButton->hide();
     this->assignProxy->hide();
-    this->form1->show();
-    this->form2->show();
-    this->form3->show();
+    this->inputArray[this->numConnections].form1->show();
+    this->inputArray[this->numConnections].form2->show();
+    this->inputArray[this->numConnections].form3->show();
     this->unassignProxyButton->show();
     this->unassignProxytext->show();
     this->ipProxy = "Proxy Ip Address: " + this->ipProxy;
     this->textipProxy->label(this->ipProxy.c_str());
     this->textipProxy->labelfont(FL_BOLD | FL_ITALIC);
     this->textipProxy->show();
+    this->roundButton->show();
+    this->roundButtonSubstract->show();
     this->window->redraw();
 }
 
 void P2PMenu::ShowProxy(){
     this->textipProxy->hide();
-    this->form1->hide();
-    this->form2->hide();
-    this->form3->hide();
+    this->inputArray[this->numConnections].form1->hide();
+    this->inputArray[this->numConnections].form2->hide();
+    this->inputArray[this->numConnections].form3->hide();
     this->unassignProxytext->hide();
     this->clientButton->show();
     this->assignProxy->show();
     this->unassignProxyButton->hide();
-    //this->roundButtonAdd->show();
-    this->roundButton->show();
+    this->roundButton->hide();
+    this->roundButtonSubstract->hide();
     this->window->redraw();
 }
 
@@ -417,9 +419,29 @@ void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
 }
 
 void P2PMenu::initRoundButton(int x, int y, int w, int h, const char *label) {
-    this->roundButton = new RoundButton(x, y, w, h, label);
-    // Puedes configurar otras propiedades del botón aquí si es necesario
+    this->numConnections = 1;
+    this->roundButton = new RoundButton(x, y, w, h, "+"); // Crea un botón redondo con un símbolo de línea horizontal
+    this->roundButtonSubstract = new RoundButton(x + 30, y, w, h, "-"); 
+    this->roundButtonSubstract->color(FL_RED);
     this->roundButton->hide();  // Muestra el botón en la interfaz
+    this->roundButtonSubstract->hide();
+}
+
+int P2PMenu::getNumConnections(){
+    return this->numConnections;
+}
+
+void P2PMenu::drawInputs(){
+    this->inputArray[this->numConnections].form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
+    this->inputArray[this->numConnections].form2 = new Fl_Input(925, 85, 50, 30, "");
+    this->inputArray[this->numConnections].form3 = new Fl_Input(1000, 85, 50, 30, "");
+    this->inputArray[this->numConnections].form1->hide();
+    this->inputArray[this->numConnections].form2->hide();
+    this->inputArray[this->numConnections].form3->hide();
+}
+
+void P2PMenu::substractConnection(){
+    std::cout<<"SUBSTACTING" << std::endl;
 }
 
 P2PMenu::P2PMenu() {
@@ -538,14 +560,21 @@ P2PMenu::P2PMenu() {
     this->consoleDisplay->buffer(consoleBuffer);
     this->consoleDisplay->textfont(FL_COURIER);
 
-    this->form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
-    this->form1->hide();
-    this->form2 = new Fl_Input(925, 85, 50, 30, "");
-    this->form2->hide();
-    this->form3 = new Fl_Input(1000, 85, 50, 30, "");
-    this->form3->hide();
-    this-> initRoundButton(1050, 50, 50, 50, "Botón");
-    this-> initRoundButton(1050, 50, 50, 50, "Botón");
+    this->initRoundButton(1050, 50, 50, 50, "Botón");
+    this->roundButtonSubstract->callback([](Fl_Widget *widget, void *data) {
+    P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+    if (p2pMenu->getNumConnections() != 1){
+        p2pMenu->substractConnection();
+    }
+    }, this);
+    this->roundButton->callback([](Fl_Widget *widget, void *data) {
+    P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+    if (p2pMenu->getNumConnections() != 4){
+        std::cout << p2pMenu->getNumConnections()<< std::endl;
+    }
+    }, this);
+    this->drawInputs();
+    this->window->end();
     this->window->end();
 }
 
