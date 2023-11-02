@@ -2,6 +2,7 @@
 
 const Fl_Color green = 79;
 const std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
+const std::string ip = "http://192.168.137.234";
 
 std::atomic<bool> shouldRun(true);
 
@@ -132,9 +133,11 @@ void P2PMenu::HideProxy(){
     std::cout <<"Hiding proxy" << std::endl;
     this->clientButton->hide();
     this->assignProxy->hide();
-    this->inputArray[this->numConnections].form1->show();
-    this->inputArray[this->numConnections].form2->show();
-    this->inputArray[this->numConnections].form3->show();
+    this->inputArray[0].form1->show();
+    this->inputArray[0].form2->show();
+    this->inputArray[0].form3->show();
+    this->inputArray[0].establishTunnel->show();
+    this->inputArray[0].disconnect->show();
     this->unassignProxyButton->show();
     this->unassignProxytext->show();
     this->ipProxy = "Proxy Ip Address: " + this->ipProxy;
@@ -227,9 +230,10 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
         std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
         bool keyIsPresent = isPublicKeyPresent(substringToCheck,authorizedKeysFile);
         if (!keyIsPresent){
-            const char *url_key = "http://192.168.137.38:3000/get-server-public-key";
+            const std::string url_key = ip + ":3000/get-server-public-key";
+            const char *url_key_cstr = url_key.c_str();
             std::string res;
-            if (this->connectionManager->postRequest(url_key, "",res)){
+            if (this->connectionManager->postRequest(url_key_cstr, "",res)){
                 printToConsole("Respuesta del servidor: " + res);
                 Json::Value root;
                 Json::CharReaderBuilder reader;
@@ -255,10 +259,11 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
         }
 
 
-        const char *url = "http://192.168.137.38:3000/subscribe-proxy";
+        const std::string url = ip + ":3000/subscribe-proxy";
+        const char *url_cstr = url.c_str();
         std::string response;
         
-        if (this->connectionManager->postRequest(url, "", response)) {
+        if (this->connectionManager->postRequest(url_cstr, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
             try {
@@ -288,10 +293,11 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
         //std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
         //std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
         //isPublicKeyPresent(substringToCheck,authorizedKeysFile);
-        const char *url = "http://192.168.137.38:3000/unsubscribe-proxy";
+        const std::string url = ip + ":3000/unsubscribe-proxy";
+        const char *url_cstr = url.c_str();
         std::string response;
         
-        if (this->connectionManager->postRequest(url, "", response)) {
+        if (this->connectionManager->postRequest(url_cstr, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
             this->proxyUnsubscribeText->hide();
@@ -349,7 +355,9 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
         Json::StreamWriterBuilder writer;
         std::string jsonDataStr = Json::writeString(writer, jsonData);
 
-        const char *url = "http://192.168.137.38:3000/assign_proxy";
+        const std::string url = ip + ":3000/assign_proxy";
+        const char *url_cstr = url.c_str();
+
         std::string response;
 
         // Configura los encabezados adecuados, incluido el Content-Type
@@ -358,7 +366,7 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
 
         ConnectionManager connectionManager; // Crea una instancia del ConnectionManager
 
-        if (connectionManager.postRequestWithData(url, jsonDataStr.c_str(), response, headers)) {
+        if (connectionManager.postRequestWithData(url_cstr, jsonDataStr.c_str(), response, headers)) {
             printToConsole("Respuesta del servidor: " + response);
             // Analizar la respuesta JSON
             Json::Value root;
@@ -403,10 +411,11 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
 
 void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
     try{
-        const char *url = "http://192.168.137.38:3000/unassign_proxy";
+        const std::string url = ip + ":3000/unassign_proxy";
+        const char *url_cstr = url.c_str();
         std::string response;
         ConnectionManager connectionManager;
-        if (connectionManager.postRequest(url,"",response)) {
+        if (connectionManager.postRequest(url_cstr ,"",response)) {
             printToConsole("Respuesta del servidor: " + response);
         } else {
             std::cout << "Error en la respuesta del servidor." << std::endl;
@@ -432,18 +441,90 @@ int P2PMenu::getNumConnections(){
 }
 
 void P2PMenu::drawInputs(){
-    this->inputArray[this->numConnections].form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
-    this->inputArray[this->numConnections].form2 = new Fl_Input(925, 85, 50, 30, "");
-    this->inputArray[this->numConnections].form3 = new Fl_Input(1000, 85, 50, 30, "");
-    this->inputArray[this->numConnections].form1->hide();
-    this->inputArray[this->numConnections].form2->hide();
-    this->inputArray[this->numConnections].form3->hide();
+    this->numConnections = 0;
+    this->inputArray[0].form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
+    this->inputArray[0].form2 = new Fl_Input(925, 85, 50, 30, "");
+    this->inputArray[0].form3 = new Fl_Input(1000, 85, 50, 30, "");
+    this->inputArray[0].establishTunnel = new Fl_Button(1065, 85, 70, 30, "connect");
+    this->inputArray[0].establishTunnel->color(FL_GREEN);
+    this->inputArray[0].disconnect = new Fl_Button(1145, 85, 80, 30, "disconnect");
+    this->inputArray[0].disconnect->color(FL_RED);
+    this->inputArray[0].disconnect->deactivate();
+
+    this->inputArray[0].form1->hide();
+    this->inputArray[0].form2->hide();
+    this->inputArray[0].form3->hide();
+    this->inputArray[0].establishTunnel->hide();
+    this->inputArray[0].disconnect->hide();
+
+    this->inputArray[1].form1 = new Fl_Input(700, 125, 200, 30, "Session 2:");
+    this->inputArray[1].form2 = new Fl_Input(925, 125, 50, 30, "");
+    this->inputArray[1].form3 = new Fl_Input(1000, 125, 50, 30, "");
+    this->inputArray[1].establishTunnel = new Fl_Button(1065, 125, 70, 30, "connect");
+    this->inputArray[1].establishTunnel->color(FL_GREEN);
+    this->inputArray[1].disconnect = new Fl_Button(1145, 125, 80, 30, "disconnect");
+    this->inputArray[1].disconnect->color(FL_RED);
+    this->inputArray[1].disconnect->deactivate();
+
+    this->inputArray[1].form1->hide();
+    this->inputArray[1].form2->hide();
+    this->inputArray[1].form3->hide();
+    this->inputArray[1].establishTunnel->hide();
+    this->inputArray[1].disconnect->hide();
+
+    this->inputArray[2].form1 = new Fl_Input(700, 165, 200, 30, "Session 3:");
+    this->inputArray[2].form2 = new Fl_Input(925, 165, 50, 30, "");
+    this->inputArray[2].form3 = new Fl_Input(1000, 165, 50, 30, "");
+    this->inputArray[2].establishTunnel = new Fl_Button(1065, 165, 70, 30, "connect");
+    this->inputArray[2].establishTunnel->color(FL_GREEN);
+    this->inputArray[2].disconnect = new Fl_Button(1145, 165, 80, 30, "disconnect");
+    this->inputArray[2].disconnect->color(FL_RED);
+    this->inputArray[2].disconnect->deactivate();
+
+    this->inputArray[2].form1->hide();
+    this->inputArray[2].form2->hide();
+    this->inputArray[2].form3->hide();
+    this->inputArray[2].establishTunnel->hide();
+    this->inputArray[2].disconnect->hide();
+
+    this->inputArray[3].form1 = new Fl_Input(700, 205, 200, 30, "Session 4:");
+    this->inputArray[3].form2 = new Fl_Input(925, 205, 50, 30, "");
+    this->inputArray[3].form3 = new Fl_Input(1000, 205, 50, 30, "");
+    this->inputArray[3].establishTunnel = new Fl_Button(1065, 205, 70, 30, "connect");
+    this->inputArray[3].establishTunnel->color(FL_GREEN);
+    this->inputArray[3].disconnect = new Fl_Button(1145, 205, 80, 30, "disconnect");
+    this->inputArray[3].disconnect->color(FL_RED);
+    this->inputArray[3].disconnect->deactivate();
+
+    this->inputArray[3].form1->hide();
+    this->inputArray[3].form2->hide();
+    this->inputArray[3].form3->hide();
+    this->inputArray[3].establishTunnel->hide();
+    this->inputArray[3].disconnect->hide();
 }
 
 void P2PMenu::substractConnection(){
-    std::cout<<"SUBSTACTING" << std::endl;
+    this->inputArray[this->numConnections].form1->hide();
+    this->inputArray[this->numConnections].form2->hide();
+    this->inputArray[this->numConnections].form3->hide();
+    this->inputArray[this->numConnections].form1->value("");
+    this->inputArray[this->numConnections].form2->value("");
+    this->inputArray[this->numConnections].form3->value("");
+    this->inputArray[this->numConnections].establishTunnel->hide();
+    this->inputArray[this->numConnections].disconnect->hide();
+    this->numConnections += -1;
+    this->window->redraw();
 }
 
+void P2PMenu::addConnection(){
+    this->numConnections += 1;
+    this->inputArray[this->numConnections].form1->show();
+    this->inputArray[this->numConnections].form2->show();
+    this->inputArray[this->numConnections].form3->show();
+    this->inputArray[this->numConnections].establishTunnel->show();
+    this->inputArray[this->numConnections].disconnect->show();
+    this->window->redraw();
+}
 P2PMenu::P2PMenu() {
     this->connectionManager = new ConnectionManager();
     // Obtener el ancho y alto de la pantalla
@@ -542,7 +623,7 @@ P2PMenu::P2PMenu() {
     }, this);
     this->unassignProxyButton->hide();
 
-    this->textipProxy = new Fl_Box(1120, 100, 400, 20, "");
+    this->textipProxy = new Fl_Box(1130, 20, 400, 20, "");
     this->textipProxy->box(FL_NO_BOX);
     this->textipProxy->color(FL_WHITE);
     this->textipProxy->hide();
@@ -560,21 +641,20 @@ P2PMenu::P2PMenu() {
     this->consoleDisplay->buffer(consoleBuffer);
     this->consoleDisplay->textfont(FL_COURIER);
 
-    this->initRoundButton(1050, 50, 50, 50, "Botón");
+    this->initRoundButton(1050, 40, 50, 50, "Botón");
     this->roundButtonSubstract->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-    if (p2pMenu->getNumConnections() != 1){
+    if (p2pMenu->getNumConnections() != 0){
         p2pMenu->substractConnection();
     }
     }, this);
     this->roundButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-    if (p2pMenu->getNumConnections() != 4){
-        std::cout << p2pMenu->getNumConnections()<< std::endl;
+    if (p2pMenu->getNumConnections() != 3){
+        p2pMenu->addConnection();
     }
     }, this);
     this->drawInputs();
-    this->window->end();
     this->window->end();
 }
 

@@ -18,7 +18,6 @@ ConnectionManager::~ConnectionManager() {
 }
 
 bool ConnectionManager::postRequest(const char *url, const char *postData, std::string &response) {
-    std::cout << "Aquí llegamos 4" << std::endl;
     if (!curl) {
         return false;
     }

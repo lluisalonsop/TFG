@@ -29,6 +29,8 @@ struct InputGroup {
     Fl_Input *form1;
     Fl_Input *form2;
     Fl_Input *form3;
+    Fl_Button *establishTunnel;
+    Fl_Button *disconnect;
 };
 
 class P2PMenu {
