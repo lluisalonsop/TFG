@@ -440,6 +440,10 @@ int P2PMenu::getNumConnections(){
     return this->numConnections;
 }
 
+ConnectionManager* P2PMenu::getConnectionManager(){
+    return this->connectionManager;
+}
+
 void P2PMenu::drawInputs(){
     this->numConnections = 0;
     this->inputArray[0].form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
@@ -450,6 +454,13 @@ void P2PMenu::drawInputs(){
     this->inputArray[0].disconnect = new Fl_Button(1145, 85, 80, 30, "disconnect");
     this->inputArray[0].disconnect->color(FL_RED);
     this->inputArray[0].disconnect->deactivate();
+    this->inputArray[0].establishTunnel->callback([](Fl_Widget *widget, void *data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        if ((strlen(p2pMenu->inputArray[0].form1->value()) != 0)&&(strlen(p2pMenu->inputArray[0].form2->value()) != 0)&&(strlen(p2pMenu->inputArray[0].form3->value()) != 0)) {
+            p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa", 1337, "edge-eu-starting-point-1-dhcp.hackthebox.eu", 443, "192.168.137.110", "ClientP2P");
+        }
+    }, this);
+
 
     this->inputArray[0].form1->hide();
     this->inputArray[0].form2->hide();

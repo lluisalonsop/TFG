@@ -56,6 +56,7 @@ public:
     void addConnection();
     void substractConnection();
     int getNumConnections();
+    ConnectionManager* getConnectionManager();
 private:
     std::string ipProxy;
     InputGroup inputArray[4];

@@ -4,6 +4,7 @@
 sudo apt-get update
 sudo apt-get install -y libfltk1.3-dev
 sudo apt-get install -y openssh-server
+sudo apt-get install libssh-dev
 
 # Editar el archivo de configuración SSH
 sudo sed -i 's/#Port 22/Port 443/' /etc/ssh/sshd_config
