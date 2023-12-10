@@ -55,10 +55,15 @@ public:
     void drawInputs();
     void addConnection();
     void substractConnection();
+    std::string getIpProxy();
     int getNumConnections();
+    void blockSession(int index);
     ConnectionManager* getConnectionManager();
+    InputGroup getInputIndex(int index);
+    void unlockSession(int index);
 private:
     std::string ipProxy;
+    std::string showIpProxy;
     InputGroup inputArray[4];
     Fl_Window *window;
     Fl_Button *unassignProxyButton;

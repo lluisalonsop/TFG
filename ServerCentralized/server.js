@@ -4,11 +4,16 @@ const SSHKey = require('./models/sshKeyModel');
 const proxies = require('./models/proxiesModel');
 const fs = require('fs');
 const bodyParser = require('body-parser');
+const https = require('https');
 const app = express();
 app.use(bodyParser.json());
 
-// Configura el puerto
 const PORT = process.env.PORT || 3000;
+
+// Lectura de las claves privadas y certificados
+const privateKey = fs.readFileSync('/home/lluis/Documents/utils/key.pem', 'utf8');
+const certificate = fs.readFileSync('/home/lluis/Documents/utils/cert.pem', 'utf8');
+const credentials = { key: privateKey, cert: certificate };
 
 async function verifyLapsedKeys() {
   try {
@@ -27,7 +32,13 @@ mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => {
     console.log('Conexión a MongoDB establecida.');
     setInterval(verifyLapsedKeys, 30000);
-    app.listen(PORT, () => {
+
+    // Creación del servidor HTTPS
+    const httpsServer = https.createServer(credentials, app);
+
+    //app.listen(PORT, () => {
+    //  console.log(`Servidor Express en ejecución en el puerto ${PORT}`);
+    httpsServer.listen(PORT, () => {
       console.log(`Servidor Express en ejecución en el puerto ${PORT}`);
 
       // Ruta para generar y almacenar las claves SSH  DEPRECATED!!!!

@@ -2,7 +2,8 @@
 
 const Fl_Color green = 79;
 const std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
-const std::string ip = "http://192.168.137.234";
+const std::string ip = "https://p2pProxyService.com";
+const char *certPath = "/home/ClientP2P/utils/cert.pem";
 
 std::atomic<bool> shouldRun(true);
 
@@ -140,8 +141,8 @@ void P2PMenu::HideProxy(){
     this->inputArray[0].disconnect->show();
     this->unassignProxyButton->show();
     this->unassignProxytext->show();
-    this->ipProxy = "Proxy Ip Address: " + this->ipProxy;
-    this->textipProxy->label(this->ipProxy.c_str());
+    this->showIpProxy = "Proxy Ip Address: " + this->ipProxy;
+    this->textipProxy->label((this->showIpProxy.c_str()));
     this->textipProxy->labelfont(FL_BOLD | FL_ITALIC);
     this->textipProxy->show();
     this->roundButton->show();
@@ -364,7 +365,7 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
         struct curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/json");
 
-        ConnectionManager connectionManager; // Crea una instancia del ConnectionManager
+        ConnectionManager connectionManager(certPath);
 
         if (connectionManager.postRequestWithData(url_cstr, jsonDataStr.c_str(), response, headers)) {
             printToConsole("Respuesta del servidor: " + response);
@@ -414,7 +415,7 @@ void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
         const std::string url = ip + ":3000/unassign_proxy";
         const char *url_cstr = url.c_str();
         std::string response;
-        ConnectionManager connectionManager;
+        ConnectionManager connectionManager(certPath);
         if (connectionManager.postRequest(url_cstr ,"",response)) {
             printToConsole("Respuesta del servidor: " + response);
         } else {
@@ -444,6 +445,27 @@ ConnectionManager* P2PMenu::getConnectionManager(){
     return this->connectionManager;
 }
 
+std::string P2PMenu::getIpProxy(){
+    return this->ipProxy;
+}
+
+InputGroup P2PMenu::getInputIndex(int index){
+    return this->inputArray[index];
+}
+
+void P2PMenu::blockSession(int index){
+    this->inputArray[index].establishTunnel->deactivate();
+    this->inputArray[index].disconnect->activate();
+}
+
+void P2PMenu::unlockSession(int index){
+    this->inputArray[index].form1->value("");
+    this->inputArray[index].form2->value("");
+    this->inputArray[index].form3->value("");
+    this->inputArray[index].establishTunnel->activate();
+    this->inputArray[index].disconnect->deactivate();
+}
+
 void P2PMenu::drawInputs(){
     this->numConnections = 0;
     this->inputArray[0].form1 = new Fl_Input(700, 85, 200, 30, "Session 1:");
@@ -456,10 +478,37 @@ void P2PMenu::drawInputs(){
     this->inputArray[0].disconnect->deactivate();
     this->inputArray[0].establishTunnel->callback([](Fl_Widget *widget, void *data) {
         P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
-        if ((strlen(p2pMenu->inputArray[0].form1->value()) != 0)&&(strlen(p2pMenu->inputArray[0].form2->value()) != 0)&&(strlen(p2pMenu->inputArray[0].form3->value()) != 0)) {
-            p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa", 1337, "edge-eu-starting-point-1-dhcp.hackthebox.eu", 443, "192.168.137.110", "ClientP2P");
+        InputGroup values = p2pMenu->getInputIndex(0);
+        if ((strlen(values.form1->value()) != 0)&&(strlen(values.form2->value()) != 0)&&(strlen(values.form3->value()) != 0)) {
+            try {
+                int remotePort = std::stoi(values.form2->value());
+                std::cout << "Entero: " << remotePort << std::endl;
+                try {
+                    int localPort = std::stoi(values.form3->value());
+                    std::cout << "Entero: " << localPort << std::endl;
+                    bool opened = p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa",values.form1->value(),"ClientP2P",p2pMenu->getIpProxy().c_str(),remotePort,localPort,0);
+                    if (opened){
+                        p2pMenu->blockSession(0);
+                    }
+                } catch (const std::invalid_argument& e) {
+                    std::cout << "La cadena no es un número válido." << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cout << "El número está fuera del rango de representación de int." << std::endl;
+                }
+            } catch (const std::invalid_argument& e) {
+                std::cout << "La cadena no es un número válido." << std::endl;
+            } catch (const std::out_of_range& e) {
+                std::cout << "El número está fuera del rango de representación de int." << std::endl;
+            }
         }
     }, this);
+    this->inputArray[0].disconnect->callback([](Fl_Widget *widget, void * data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        bool closed = p2pMenu->getConnectionManager()->deleteSSHTunnel(0);
+        if (closed){
+            p2pMenu->unlockSession(0);
+        }
+    },this);
 
 
     this->inputArray[0].form1->hide();
@@ -476,6 +525,39 @@ void P2PMenu::drawInputs(){
     this->inputArray[1].disconnect = new Fl_Button(1145, 125, 80, 30, "disconnect");
     this->inputArray[1].disconnect->color(FL_RED);
     this->inputArray[1].disconnect->deactivate();
+    this->inputArray[1].establishTunnel->callback([](Fl_Widget *widget, void *data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        InputGroup values = p2pMenu->getInputIndex(1);
+        if ((strlen(values.form1->value()) != 0)&&(strlen(values.form2->value()) != 0)&&(strlen(values.form3->value()) != 0)) {
+            try {
+                int remotePort = std::stoi(values.form2->value());
+                std::cout << "Entero: " << remotePort << std::endl;
+                try {
+                    int localPort = std::stoi(values.form3->value());
+                    std::cout << "Entero: " << localPort << std::endl;
+                    bool opened = p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa",values.form1->value(),"ClientP2P",p2pMenu->getIpProxy().c_str(),remotePort,localPort,1);
+                    if (opened){
+                        p2pMenu->blockSession(1);
+                    }
+                } catch (const std::invalid_argument& e) {
+                    std::cout << "La cadena no es un número válido." << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cout << "El número está fuera del rango de representación de int." << std::endl;
+                }
+            } catch (const std::invalid_argument& e) {
+                std::cout << "La cadena no es un número válido." << std::endl;
+            } catch (const std::out_of_range& e) {
+                std::cout << "El número está fuera del rango de representación de int." << std::endl;
+            }
+        }
+    }, this);
+    this->inputArray[1].disconnect->callback([](Fl_Widget *widget, void * data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        bool closed = p2pMenu->getConnectionManager()->deleteSSHTunnel(1);
+        if (closed){
+            p2pMenu->unlockSession(1);
+        }
+    },this);
 
     this->inputArray[1].form1->hide();
     this->inputArray[1].form2->hide();
@@ -491,6 +573,39 @@ void P2PMenu::drawInputs(){
     this->inputArray[2].disconnect = new Fl_Button(1145, 165, 80, 30, "disconnect");
     this->inputArray[2].disconnect->color(FL_RED);
     this->inputArray[2].disconnect->deactivate();
+    this->inputArray[2].establishTunnel->callback([](Fl_Widget *widget, void *data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        InputGroup values = p2pMenu->getInputIndex(2);
+        if ((strlen(values.form1->value()) != 0)&&(strlen(values.form2->value()) != 0)&&(strlen(values.form3->value()) != 0)) {
+            try {
+                int remotePort = std::stoi(values.form2->value());
+                std::cout << "Entero: " << remotePort << std::endl;
+                try {
+                    int localPort = std::stoi(values.form3->value());
+                    std::cout << "Entero: " << localPort << std::endl;
+                    bool opened = p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa",values.form1->value(),"ClientP2P",p2pMenu->getIpProxy().c_str(),remotePort,localPort,2);
+                    if (opened){
+                        p2pMenu->blockSession(2);
+                    }
+                } catch (const std::invalid_argument& e) {
+                    std::cout << "La cadena no es un número válido." << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cout << "El número está fuera del rango de representación de int." << std::endl;
+                }
+            } catch (const std::invalid_argument& e) {
+                std::cout << "La cadena no es un número válido." << std::endl;
+            } catch (const std::out_of_range& e) {
+                std::cout << "El número está fuera del rango de representación de int." << std::endl;
+            }
+        }
+    }, this);
+    this->inputArray[2].disconnect->callback([](Fl_Widget *widget, void * data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        bool closed = p2pMenu->getConnectionManager()->deleteSSHTunnel(2);
+        if (closed){
+            p2pMenu->unlockSession(2);
+        }
+    },this);
 
     this->inputArray[2].form1->hide();
     this->inputArray[2].form2->hide();
@@ -506,6 +621,39 @@ void P2PMenu::drawInputs(){
     this->inputArray[3].disconnect = new Fl_Button(1145, 205, 80, 30, "disconnect");
     this->inputArray[3].disconnect->color(FL_RED);
     this->inputArray[3].disconnect->deactivate();
+    this->inputArray[3].establishTunnel->callback([](Fl_Widget *widget, void *data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        InputGroup values = p2pMenu->getInputIndex(3);
+        if ((strlen(values.form1->value()) != 0)&&(strlen(values.form2->value()) != 0)&&(strlen(values.form3->value()) != 0)) {
+            try {
+                int remotePort = std::stoi(values.form2->value());
+                std::cout << "Entero: " << remotePort << std::endl;
+                try {
+                    int localPort = std::stoi(values.form3->value());
+                    std::cout << "Entero: " << localPort << std::endl;
+                    bool opened = p2pMenu->getConnectionManager()->establishSSHTunnel("./.ssh/id_rsa",values.form1->value(),"ClientP2P",p2pMenu->getIpProxy().c_str(),remotePort,localPort,3);
+                    if (opened){
+                        p2pMenu->blockSession(3);
+                    }
+                } catch (const std::invalid_argument& e) {
+                    std::cout << "La cadena no es un número válido." << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cout << "El número está fuera del rango de representación de int." << std::endl;
+                }
+            } catch (const std::invalid_argument& e) {
+                std::cout << "La cadena no es un número válido." << std::endl;
+            } catch (const std::out_of_range& e) {
+                std::cout << "El número está fuera del rango de representación de int." << std::endl;
+            }
+        }
+    }, this);
+    this->inputArray[3].disconnect->callback([](Fl_Widget *widget, void * data) {
+        P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
+        bool closed = p2pMenu->getConnectionManager()->deleteSSHTunnel(3);
+        if (closed){
+            p2pMenu->unlockSession(3);
+        }
+    },this);
 
     this->inputArray[3].form1->hide();
     this->inputArray[3].form2->hide();
@@ -537,7 +685,7 @@ void P2PMenu::addConnection(){
     this->window->redraw();
 }
 P2PMenu::P2PMenu() {
-    this->connectionManager = new ConnectionManager();
+    this->connectionManager = new ConnectionManager(certPath);
     // Obtener el ancho y alto de la pantalla
     int screenWidth = Fl::w();
     int screenHeight = Fl::h();
