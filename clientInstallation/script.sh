@@ -49,12 +49,13 @@ else
   echo "La entrada ya existe en /etc/hosts. No se agregó."
 fi
 
-sudo mkdir -p "/home/ClientP2P/utils/"
+sudo mkdir -p "/home/ClientP2P/utils/server/"
+sudo mkdir -p "/home/ClientP2P/utils/client/"
 
 
 sudo bash -c '
-  if [ ! -f "/home/ClientP2P/utils/cert.pem" ]; then
-    sudo wget -q -P "/home/ClientP2P/utils" "https://raw.githubusercontent.com/lluisalonsop/TFG/main/utils/cert.pem"
+  if [ ! -f "/home/ClientP2P/utils/server/cert.pem" ]; then
+    sudo wget -q -P "/home/ClientP2P/utils/server" "https://raw.githubusercontent.com/lluisalonsop/TFG/main/utils/cert.pem"
   fi
 '
 

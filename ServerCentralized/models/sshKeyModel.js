@@ -9,6 +9,7 @@ const sshKeySchema = new mongoose.Schema({
   //privateKey: String,
   ip: String,
   expiryDate: Date,
+  assigned: String,
 });
 /* ------------------------DEPRECTED------------------------
 sshKeySchema.statics.generateAndStoreSSHKeys = async function (ip) {
@@ -56,6 +57,7 @@ sshKeySchema.statics.storeKey = async function (ip,publicKey) {
       ip,
       // 30 days: expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       expiryDate: new Date(Date.now() + 60 * 1000),
+      assigned: false
     });
     await sshKey.save();
 

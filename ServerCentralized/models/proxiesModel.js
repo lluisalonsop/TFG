@@ -1,15 +1,20 @@
 const mongoose = require('mongoose');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
+const tls = require('tls');
 const fs = require('fs');
 const { Client } = require('ssh2');
 const net = require('net');
+const jwts = require('./verificarJWT');
+const sshKey = require('./sshKeyModel');
 
 const proxyDbConnection = mongoose.createConnection('mongodb://localhost:27017/proxies');
 
 const proxieSchema = new mongoose.Schema({
   ip: String,
-  clientip: {
+  certificatePEM: String,
+  randint: String,
+  clientJwt: {
     type: String,
     default: ""
   },
@@ -39,7 +44,7 @@ function testSSHConnectionWithPrivateKey(host, privateKeyPath) {
     console.log("privateKey")
     const sshConfig = {
       host,
-      port: 22,
+      port: 443,
       username :"ClientP2P",
       privateKey,
     };
@@ -48,68 +53,89 @@ function testSSHConnectionWithPrivateKey(host, privateKeyPath) {
   });
 }
 
-proxieSchema.statics.storeNewProxy = async function (ip) {
+proxieSchema.statics.storeNewProxy = async function (ip, certificatePEM, token, randint) {
   try {
+    await testSSHConnectionWithPrivateKey(ip, "./.ssh/id_rsa");
+    console.log('Prueba de conexión SSH con clave privada exitosa');
+    console.log("New Proxy ip: ", ip)
+    console.log("Rand int got: ", randint)
 
-    testSSHConnectionWithPrivateKey(ip,"./.ssh/id_rsa").then(() => {
-      console.log('Prueba de conexión SSH con clave privada exitosa');
-    }).catch((error) => {
-      console.error('Prueba de conexión SSH con clave privada fallida:', error);
+    const proxyIp = new this({
+      ip,
+      certificatePEM,
+      randint
     });
-    console.log("New Proxy ip: ",ip)
-    const proxyIp = new this({ 
-      ip
-    });
+
     await proxyIp.save();
+    jwts.almacenarJWT(token);
 
     return true;
   } catch (error) {
-    throw new Error('Error al almacenar proxyIp');
+    console.error('Error al almacenar proxyIp:', error);
+    return false;
   }
 };
 
-proxieSchema.statics.assignProxyToIp = async function (ipClient,publicKey) {
+
+
+proxieSchema.statics.assignProxyToIp = async function (ipClient,publicKey, token) {
   try {
     // Buscar un proxy aleatorio que no esté asignado
     const randomUnassignedProxy = await proxies.findOne({ assigned: false });
-
     if (!randomUnassignedProxy) {
       console.log('No se encontraron proxies no asignados.');
       return false;
     }
-
     const proxyIp = randomUnassignedProxy.ip;
     console.log('Proxy no asignado encontrado:', proxyIp);
-
+    const randint = randomUnassignedProxy.randint;
+    console.log('Rand int of proxy:', randint)
     // Realizar la prueba de conexión SSH
     try {
-      const client = new net.Socket();
-      client.connect(12345, proxyIp, () => {
-            console.log('Conectado al proxy');
-            
-            // Enviar la clave pública al servidor
-            client.write(publicKey);
+      const options = {
+        host: proxyIp,
+        port: 12345,
+        rejectUnauthorized: false,
+        secureProtocol: 'TLSv1_2_method', // Especifica la versión del protocolo aquí
+      };
 
-            // Cerrar la conexión después de enviar la clave pública
-            client.end();
-        });
+      const jsonToSend = {
+        publicKey: publicKey,
+        randint: randint,
+      };
+      const client = tls.connect(options, () => {
+        console.log('Conectado al servidor');
+        const jsonString = JSON.stringify(jsonToSend);
+        client.write(jsonString);
+      });
+      client.on('data', (data) => {
+        console.log('Datos recibidos:', data.toString());
+        client.end();
+      });
+      client.on('error', (err) => {
+        console.error('Error en la conexión TLS:', err);
+      });
+
       // Marcar el proxy como asignado en la base de datos
       randomUnassignedProxy.assigned = true;
-      randomUnassignedProxy.clientip = ipClient;
+      randomUnassignedProxy.clientJwt = token;
       await randomUnassignedProxy.save();
+      jwts.almacenarJWT(token);
+      await sshKey.updateOne({ publicKey: publicKey }, { assigned: true });
       return proxyIp;
     } catch (error) {
       console.error('Prueba de conexión SSH con clave privada fallida:', error);
     }
+    
   } catch (error) {
     console.error('Error al buscar proxy no asignado:', error);
   }
 }
 
-proxieSchema.statics.unassignProxy = async function (ipv4) {
+proxieSchema.statics.unassignProxy = async function (token) {
   try {
     // Buscar un proxy aleatorio que no esté asignado
-    const assignedProxy = await proxies.findOne({ clientip: ipv4});
+    const assignedProxy = await proxies.findOne({ clientJwt: token});
 
     if (!assignedProxy) {
       console.log('No se encontraron proxies no asignados.');
@@ -119,7 +145,7 @@ proxieSchema.statics.unassignProxy = async function (ipv4) {
     try {
       // Marcar el proxy como asignado en la base de datos
       assignedProxy.assigned = false;
-      assignedProxy.clientip = "";
+      assignedProxy.clientJwt = "";
       await assignedProxy.save();
       return true;
     } catch (error) {

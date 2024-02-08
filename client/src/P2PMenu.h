@@ -11,6 +11,7 @@
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Input.H>
 #include <fstream>
+#include <random>
 #include <ctime>
 #include <json/json.h>
 #include <iostream>
@@ -24,6 +25,8 @@
 #include <netinet/in.h>
 #include <thread>
 #include <atomic>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 struct InputGroup {
     Fl_Input *form1;

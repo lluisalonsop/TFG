@@ -3,19 +3,31 @@
 const Fl_Color green = 79;
 const std::string authorizedKeysFile = "/home/ClientP2P/.ssh/authorized_keys";
 const std::string ip = "https://p2pProxyService.com";
-const char *certPath = "/home/ClientP2P/utils/cert.pem";
-
+const char *serverCertPath = "/home/ClientP2P/utils/server/cert.pem";
+const char* clientPath = "/home/ClientP2P/utils/client/certificado.pem";
+const char* privateKeyPath = "/home/ClientP2P/utils/client/clave-privada.pem";
+std::string randintHex = "";
+std::string jwtClient = "";
 std::atomic<bool> shouldRun(true);
 
 bool containsSubstring(const std::string &line, const std::string &substring) {
     return line.find(substring) != std::string::npos;
 }
 
-/*void P2PMenu::printToConsole(const std::string &message) {
-    this->consoleBuffer->append(message.c_str());
-    this->consoleBuffer->append("\n");
+bool fileExists(const char* filename) {
+    std::ifstream file(filename);
+    return file.good();
 }
-*/
+
+void generateCertificates() {
+    std::cout << "Generando certificado y clave privada..." << std::endl;
+    const char* command = "openssl req -x509 -newkey rsa:4096 -keyout /home/ClientP2P/utils/client/clave-privada.pem -out /home/ClientP2P/utils/client/certificado.pem -days 365 -nodes -subj \"/\"";
+    int result = std::system(command);
+    if (result != 0) {
+        std::cerr << "Error al ejecutar el comando de generación de certificado y clave privada." << std::endl;
+        // Puedes manejar el error de alguna manera apropiada, como lanzar una excepción o salir del programa.
+    }
+}
 
 bool esClavePublicaSSH(const std::string& mensaje) {
     // Comprueba si el mensaje comienza con "ssh-"
@@ -25,14 +37,16 @@ bool esClavePublicaSSH(const std::string& mensaje) {
 void P2PMenu::listenForConnections() {
     try {
         int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+        std::cout <<"Hello from thread" << std::endl;
         if (serverSocket == -1) {
             perror("Error al crear el socket del servidor");
             return;
         }
+
         struct sockaddr_in serverAddress;
         serverAddress.sin_family = AF_INET;
         serverAddress.sin_addr.s_addr = INADDR_ANY;
-        serverAddress.sin_port = htons(12345); // El puerto en el que deseas escuchar
+        serverAddress.sin_port = htons(12345); // Puerto que deseas escuchar
 
         if (bind(serverSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) == -1) {
             perror("Error al vincular el socket del servidor");
@@ -45,6 +59,22 @@ void P2PMenu::listenForConnections() {
             close(serverSocket);
             return;
         }
+
+        SSL_CTX* sslContext = SSL_CTX_new(SSLv23_server_method());
+        if (!sslContext) {
+            perror("Error al crear el contexto SSL");
+            close(serverSocket);
+            return;
+        }
+
+        if (SSL_CTX_use_certificate_file(sslContext, clientPath, SSL_FILETYPE_PEM) <= 0 ||
+            SSL_CTX_use_PrivateKey_file(sslContext, privateKeyPath, SSL_FILETYPE_PEM) <= 0) {
+            perror("Error al cargar el certificado o la clave privada");
+            close(serverSocket);
+            SSL_CTX_free(sslContext);
+            return;
+        }
+
         while (shouldRun.load()) {
             struct sockaddr_in clientAddress;
             socklen_t clientAddressLength = sizeof(clientAddress);
@@ -54,36 +84,95 @@ void P2PMenu::listenForConnections() {
                 continue;
             }
 
-
-        // Aquí puedes manejar la conexión entrante, leer y escribir datos con el cliente, etc.
-        char buffer[1024]; // Un búfer para almacenar los datos recibidos
-        ssize_t bytesRead;
-
-        while ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
-            // Imprime lo que se recibe en la consola
-            std::cout << "Mensaje recibido del cliente: " << std::string(buffer, bytesRead) << std::endl;
-            printToConsole("Mensaje recibido: " + std::string(buffer,bytesRead));
-            bool ssh = esClavePublicaSSH(std::string(buffer,bytesRead));
-            if (ssh){
-                storePublicKey(std::string(buffer,bytesRead),authorizedKeysFile);
-            }else{
-                printToConsole(std::string(buffer,bytesRead));
+            SSL* ssl = SSL_new(sslContext);
+            SSL_set_fd(ssl, clientSocket);
+            if (SSL_accept(ssl) <= 0) {
+                ERR_print_errors_fp(stderr); // Imprimir información detallada sobre el error SSL
+                perror("Error en el proceso de aceptación SSL");
+                close(clientSocket);
+                SSL_free(ssl);
+                continue;
             }
-            // Puedes realizar otras operaciones con los datos recibidos aquí, si es necesario.
-        }
+            // Aquí puedes manejar la conexión SSL entrante, leer y escribir datos con el cliente, etc.
+            char buffer[2048]; // Un búfer para almacenar los datos recibidos
+            ssize_t bytesRead;
 
-        if (bytesRead == -1) {
-            perror("Error al recibir datos del cliente");
-        }
+            while ((bytesRead = SSL_read(ssl, buffer, sizeof(buffer))) > 0) {
+                // Imprime lo que se recibe en la consola
+                std::cout << "Mensaje recibido del cliente: " << std::string(buffer, bytesRead) << std::endl;
+                std::string receivedData(buffer, bytesRead);
+                // Parsear el JSON recibido
+                Json::Value root;
+                Json::CharReaderBuilder reader;
+                std::istringstream jsonStream(receivedData);
+                std::string errs;
+                if (Json::parseFromStream(reader, jsonStream, &root, &errs)) {
+                    if ((root.isMember("randint"))&&(root["randint"].asString()==randintHex)) {
+                        if (root.isMember("publicKey")){
+                            std::string publicKey = root["publicKey"].asString();
+                            bool ssh = esClavePublicaSSH(publicKey);
+                            if (ssh){
+                                std::cout << "Succesfull detecterd public key" << std::endl;
+                                storePublicKey(std::string(buffer,bytesRead),authorizedKeysFile);
+                            }else{
+                                std::cout << "Thats not public key" << std::endl;
+                                printToConsole(std::string(buffer,bytesRead));
+                            }
+                        }
+                        continue;
+                    } else {
+                        std::cout << "Someone is impersonatning server!!!" << std::endl;
+                    }
+                }
+                /*
+                Json::CharReaderBuilder readerBuilder;
+                Json::CharReader* reader = readerBuilder.newCharReader();
+                Json::Value jsonData;
+                std::string errs;
+                bool parsingSuccessful = Json::parseFromStream(reader, receivedData, &jsonData, &errs);
+                if (parsingSuccessful) {
+                    // Verificar si el JSON contiene el campo "publicKey" y "randint"
+                    if (jsonData.isMember("publicKey") && jsonData.isMember("randint")) {
+                        std::string publicKey = jsonData["publicKey"].asString();
+                        std::string randintHexRecived = jsonData["randint"].asString();
+
+                        if (randintHexRecived != randintHex){
+                            std::cout<<"Someone is impersonating server";
+                            break;
+                        }else{
+                            bool ssh = esClavePublicaSSH(std::string(buffer,bytesRead));
+                            if (ssh){
+                                storePublicKey(std::string(buffer,bytesRead),authorizedKeysFile);
+                            }else{
+                                printToConsole(std::string(buffer,bytesRead));
+                            }
+                        }
+                    } else {
+                        std::cerr << "El JSON no contiene los campos esperados." << std::endl;
+                    }
+                } else {
+                    std::cerr << "Error al parsear el JSON: " << errs << std::endl;
+                }
+                }
+                */
+            if (bytesRead == -1) {
+                perror("Error al recibir datos del cliente");
+            }
+
+            SSL_shutdown(ssl);
+            SSL_free(ssl);
             close(clientSocket);
         }
+
+        SSL_CTX_free(sslContext);
         close(serverSocket);
+    }
     } catch (const std::exception& e) {
         // Maneja la excepción aquí, por ejemplo, registrándola o imprimiéndola
-        printToConsole("Excepción en listenForConnections: " + std::string(e.what()));
+        std::cerr << "Excepción en listenForConnections: " << e.what() << std::endl;
     } catch (...) {
         // Maneja otras excepciones no identificadas aquí
-        printToConsole("Excepción no identificada en listenForConnections");
+        std::cerr << "Excepción no identificada en listenForConnections" << std::endl;
     }
 }
 
@@ -99,15 +188,6 @@ void P2PMenu::printToConsole(const std::string &message) {
     
     Fl_Text_Buffer *buffer = consoleDisplay->buffer();
     buffer->append(formattedMessage.c_str());
-    
-    /*if (bold) {
-        buffer->append("\n");
-        fl_color(FL_BLACK);
-        fl_font(FL_HELVETICA_BOLD, 12);
-        consoleDisplay->insert(buffer->length(), formattedMessage.c_str());
-        fl_font(FL_HELVETICA, 12); // Volver a la fuente normal
-    }
-    */
     
     buffer->append("\n");
     consoleDisplay->scroll(consoleDisplay->h(), 0);
@@ -161,6 +241,15 @@ void P2PMenu::ShowProxy(){
     this->unassignProxyButton->hide();
     this->roundButton->hide();
     this->roundButtonSubstract->hide();
+    //BUCLE
+    for (int i=0; i <= numConnections; i++){
+        this->inputArray[i].form1->hide();
+        this->inputArray[i].form2->hide();
+        this->inputArray[i].form3->hide();
+        this->inputArray[i].establishTunnel->hide();
+        this->inputArray[i].disconnect->hide();
+    }
+    this->numConnections=0;
     this->window->redraw();
 }
 
@@ -225,9 +314,7 @@ bool P2PMenu::storePublicKey(const std::string pubKey ,const std::string &author
 
 void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
     std::cout << "Aquí llegamos 3" << std::endl;
-    
     try {
-
         std::string substringToCheck = "P2PServerKey"; // Subcadena a buscar
         bool keyIsPresent = isPublicKeyPresent(substringToCheck,authorizedKeysFile);
         if (!keyIsPresent){
@@ -259,31 +346,90 @@ void P2PMenu::buttonOfferCallback(Fl_Widget *widget, void *data) {
             }
         }
 
+        if (!fileExists(clientPath) || !fileExists(privateKeyPath)) {
+            generateCertificates();
+        }
+        std::ifstream inputFile(clientPath);
+        if (!inputFile.is_open()) {
+            std::cerr << "No se pudo abrir el archivo." << std::endl;
+        }
+        std::stringstream buffer;
+        buffer << inputFile.rdbuf(); // Lee el contenido del archivo en el buffer
+        std::string content = buffer.str(); // Guarda el contenido en una variable
+        inputFile.close(); // Cierra el archivo
+
+        std::cout <<"PUBLIC CERT PEM:" << content <<std::endl;
+
+        Json::Value jsonData;
+        jsonData["certificatePem"] = content;
+
+        //Generar el numero aleatorio
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis;
+        // Generar un número aleatorio de 256 bits
+        uint64_t randomValue[4];
+        for (int i = 0; i < 4; ++i) {
+            randomValue[i] = dis(gen);
+        }
+        //Convertir el numero a hex
+        std::ostringstream oss;
+        for (int i = 0; i < 4; ++i) {
+            oss << std::hex << std::setw(16) << std::setfill('0') << randomValue[i];
+        }
+        std::string randomNumberHex = oss.str();
+        randintHex = randomNumberHex;
+        jsonData["randint"] = randomNumberHex;
+        std::cout << "Random num hex: " << randomNumberHex << std::endl;
+        Json::StreamWriterBuilder writer;
+        std::string jsonDataStr = Json::writeString(writer, jsonData);
 
         const std::string url = ip + ":3000/subscribe-proxy";
         const char *url_cstr = url.c_str();
-        std::string response;
-        
-        if (this->connectionManager->postRequest(url_cstr, "", response)) {
-            //std::cout << "Respuesta del servidor: " << response << std::endl;
-            printToConsole("Respuesta del servidor: " + response);
-            try {
-                std::thread listenerThread(&P2PMenu::listenForConnections, this);
-                listenerThread.detach();
 
-            }catch (const std::exception& e) {
-                // Maneja la excepción aquí, por ejemplo, registrándola o imprimiéndola
-                printToConsole("Excepción en listenForConnections: " + std::string(e.what()));
-            } catch (...) {
-                // Maneja otras excepciones no identificadas aquí
-                printToConsole("Excepción no identificada en listenForConnections");
+        std::string response;
+
+        // Configura los encabezados adecuados, incluido el Content-Type
+        struct curl_slist *headers = nullptr;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+
+        ConnectionManager connectionManager(serverCertPath);
+        try {
+            std::thread listenerThread(&P2PMenu::listenForConnections, this);
+            listenerThread.detach();
+        }catch (const std::exception& e) {
+            // Maneja la excepción aquí, por ejemplo, registrándola o imprimiéndola
+            printToConsole("Excepción en listenForConnections: " + std::string(e.what()));
+        } catch (...) {
+            // Maneja otras excepciones no identificadas aquí
+            printToConsole("Excepción no identificada en listenForConnections");
+        }
+
+        if (connectionManager.postRequestWithData(url_cstr, jsonDataStr.c_str(), response, headers)) {
+            printToConsole("Respuesta del servidor: " + response);
+            // Parsear la respuesta JSON
+            Json::CharReaderBuilder reader;
+            std::istringstream responseStream(response);
+            Json::Value jsonResponse;
+            Json::parseFromStream(reader, responseStream, &jsonResponse, nullptr);
+
+             // Verificar si la respuesta contiene la clave 'token'
+            if (jsonResponse.isMember("tokenProxy")) {
+                // Obtener el valor del token
+                std::string token = jsonResponse["tokenProxy"].asString();
+                //std::cout << "Token recibido del servidor: " << token << std::endl;
+                this->connectionManager->setJWT(token);
+
+                // Ahora 'token' contiene el valor del token
+                // Puedes hacer lo que necesites con el token en tu aplicación
+            } else {
+                std::cout << "La respuesta no contiene la clave 'token', tiene:" << jsonResponse << std::endl;
             }
+
             this->Circle->color(FL_GREEN);
         } else {
             std::cout << "Error en la respuesta del servidor???" << std::endl;
         }
-    } catch (const std::exception &e) {
-        std::cerr << "Excepción atrapada: " << e.what() << std::endl;
     } catch (...) {
         std::cerr << "Excepción no identificada atrapada" << std::endl;
     }
@@ -298,7 +444,7 @@ void P2PMenu::buttonUnsubscribeCallback(Fl_Widget *widget, void *data) {
         const char *url_cstr = url.c_str();
         std::string response;
         
-        if (this->connectionManager->postRequest(url_cstr, "", response)) {
+        if (this->connectionManager->postRequestWithJWT(url_cstr, "", response)) {
             //std::cout << "Respuesta del servidor: " << response << std::endl;
             printToConsole("Respuesta del servidor: " + response);
             this->proxyUnsubscribeText->hide();
@@ -320,7 +466,7 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
     try {
         const char *sshDirPath = "./.ssh"; // Ruta al directorio ./.ssh
         if (system(("mkdir -p " + std::string(sshDirPath)).c_str()) == 0) {
-            std::cout << "Directorio ./.ssh creado exitosamente." << std::endl;
+            std::cout << "Directorio ./.ssh configurado exitosamente." << std::endl;
         } else {
             std::cerr << "Error al crear el directorio ./.ssh." << std::endl;
         }
@@ -365,7 +511,7 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
         struct curl_slist *headers = nullptr;
         headers = curl_slist_append(headers, "Content-Type: application/json");
 
-        ConnectionManager connectionManager(certPath);
+        ConnectionManager connectionManager(serverCertPath);
 
         if (connectionManager.postRequestWithData(url_cstr, jsonDataStr.c_str(), response, headers)) {
             printToConsole("Respuesta del servidor: " + response);
@@ -384,24 +530,30 @@ std::string P2PMenu::askForProxy(Fl_Widget *widget, void *data) {
             }
 
             if (root.isMember("message")) {
-                ipAddress = root["message"].asString();
+                std::string ipAddress = root["message"].asString();
                 std::string searchString = "Proxy ip: ";
-                size_t found = response.find(searchString);
+                size_t found = ipAddress.find(searchString);
+                std::cout << "Value ipAddress: " << ipAddress << std::endl;
+
                 // Verificar si se encontró la cadena de búsqueda
                 if (found != std::string::npos) {
-                    std::string ipAddress = response.substr(found + searchString.length());
-                    ipAddress.pop_back();
-                    ipAddress.pop_back();
+                    std::cout << "found: " << found << std::endl;
+                    ipAddress = ipAddress.substr(found + searchString.length());
+                    if (root.isMember("tokenClient")) {
+                        jwtClient = root["tokenClient"].asString();
+                    } else {
+                        std::cerr << "No se encontró el campo 'tokenClient' en la respuesta JSON." << std::endl;
+                    }
                     return ipAddress;
                 } else {
                     std::cerr << "No se encontró la cadena 'Proxy ip: ' en la respuesta." << std::endl;
                 }
-
             } else {
                 std::cerr << "No se encontró el campo 'message' en la respuesta JSON." << std::endl;
             }
         } else {
-            std::cout << "Error en la respuesta del servidor." << std::endl;
+            printToConsole("Respuesta del servidor: " + response);
+            return "";
         }
     } catch (const std::exception &e) {
         std::cerr << "Excepción atrapada: " << e.what() << std::endl;
@@ -415,8 +567,8 @@ void P2PMenu::unassignProxy(Fl_Widget *widget, void *data){
         const std::string url = ip + ":3000/unassign_proxy";
         const char *url_cstr = url.c_str();
         std::string response;
-        ConnectionManager connectionManager(certPath);
-        if (connectionManager.postRequest(url_cstr ,"",response)) {
+        ConnectionManager connectionManager(serverCertPath,jwtClient);
+        if (connectionManager.postRequestWithJWT(url_cstr ,"",response)) {
             printToConsole("Respuesta del servidor: " + response);
         } else {
             std::cout << "Error en la respuesta del servidor." << std::endl;
@@ -685,7 +837,7 @@ void P2PMenu::addConnection(){
     this->window->redraw();
 }
 P2PMenu::P2PMenu() {
-    this->connectionManager = new ConnectionManager(certPath);
+    this->connectionManager = new ConnectionManager(serverCertPath);
     // Obtener el ancho y alto de la pantalla
     int screenWidth = Fl::w();
     int screenHeight = Fl::h();
@@ -766,13 +918,15 @@ P2PMenu::P2PMenu() {
     this->clientButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->ipProxy = p2pMenu->askForProxy(widget, p2pMenu);
-    p2pMenu->HideProxy();
+    if (p2pMenu->ipProxy != ""){
+        p2pMenu->HideProxy();
+    }
     //Fl_Button *b = (Fl_Button *)widget;
     //b->hide();
     }, this);
 
     this->unassignProxyButton = new Fl_Button(400,85,100,30,"Haz clic");
-    this->unassignProxyButton->color(FL_GREEN);
+    this->unassignProxyButton->color(FL_RED);
     this->unassignProxyButton->callback([](Fl_Widget *widget, void *data) {
     P2PMenu *p2pMenu = static_cast<P2PMenu *>(data);
     p2pMenu->unassignProxy(widget, p2pMenu);

@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -I/home/lluis/Documents/vcpkg/installed/x64-linux/include
 
 #Without warinings:
 #CFLAGS = -w -I/home/lluis/Documents/vcpkg/installed/x64-linux/include -I/usr/include/libssh
-LDFLAGS = -L/home/lluis/Documents/vcpkg/installed/x64-linux/lib -lfltk -lcurl -ljsoncpp -lssh -Wl,--no-as-needed
+LDFLAGS = -L/home/lluis/Documents/vcpkg/installed/x64-linux/lib -lfltk -lcurl -ljsoncpp -lssl -lcrypto -pthread -lssh -Wl,--no-as-needed
 
 # Lista de archivos de código fuente
 SRCS = src/main.cpp src/P2PMenu.cpp src/ConnectionManager.cpp src/RoundButton.cpp
